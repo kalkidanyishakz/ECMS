@@ -5,6 +5,7 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { getCursorPaginationArgs, paginateResult } from '@/lib/pagination';
+import { saveUploadedFile, extractUpload } from '@/lib/storage';
 import { withErrorHandling } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
@@ -49,10 +50,16 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const title = (form.get('title') as string)?.trim();
   const document_type = (form.get('document_type') as string)?.trim() || 'other';
   const revision_number = (form.get('revision_number') as string)?.trim() || 'A';
-  const file_id = (form.get('file_id') as string)?.trim();
+  let file_id = (form.get('file_id') as string)?.trim();
 
   if (!document_number || !title) {
     return NextResponse.json({ error: 'document_number and title are required' }, { status: 400 });
+  }
+
+  const upload = extractUpload(form);
+  if (!file_id && upload) {
+    const stored = await saveUploadedFile(upload, { tenantId, userId });
+    file_id = stored.id;
   }
 
   const existing = await db.documents.findFirst({
@@ -97,6 +104,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     entityId: document.id,
     after: { document_number, title, category: document_type, status: 'draft' },
   });
+
+  const redirectTo = (form.get('redirect_to') as string)?.trim();
+  if (redirectTo) redirect(redirectTo);
 
   return NextResponse.json(document, { status: 201 });
 });

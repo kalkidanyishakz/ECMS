@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { requireApiPermission, assertSegregationOfDuty } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +29,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   );
   if (blocked) return blocked;
 
+  const form = await req.formData().catch(() => null);
+
   const now = new Date();
   const updated = await db.stock_counts.update({
     where: { id },
@@ -49,6 +51,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     before: { status: stockCount.status },
     after: { status: 'approved', approved_by: userId },
   });
+
+  if (form) redirectIfRequested(form);
 
   return NextResponse.json(updated);
 });

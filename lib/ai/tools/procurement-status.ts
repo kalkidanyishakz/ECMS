@@ -24,6 +24,14 @@ export async function run(
   const targetProjectId = projectId || args.projectId;
   const topN = args.topN || 5;
 
+  if (!targetProjectId) {
+    return {
+      allowed: false,
+      restricted: true,
+      reason: 'Both projectId and userId must be provided.',
+    };
+  }
+
   const permCheck = await checkToolPermissions(targetProjectId, userId, 'inventory.read', dbClient);
   if (!permCheck.allowed) {
     return permCheck;
@@ -47,7 +55,7 @@ export async function run(
       id: pr.id,
       requisitionNumber: pr.requisition_number,
       status: pr.status,
-      title: pr.title || pr.description,
+      title: pr.title || pr.description || pr.purpose,
       createdAt: pr.created_at,
     }));
 
@@ -95,7 +103,7 @@ export async function run(
       stockMap.set(itemId, {
         id: itemId,
         code: item?.item_code || 'N/A',
-        name: item?.name || 'Unknown Item',
+        name: item?.name || item?.description || 'Unknown Item',
         unit: item?.unit || 'pcs',
         totalQuantity: 0,
         totalValue: 0,

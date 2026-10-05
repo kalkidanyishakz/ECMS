@@ -4,7 +4,7 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { variationTransitions } from '@/lib/transitions';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +49,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     before: { status: variation.status },
     after: { status: 'incorporated', incorporated_boq_version_id },
   });
+
+  redirectIfRequested(form);
 
   return NextResponse.json({ status: 'incorporated' });
 });

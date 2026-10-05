@@ -4,9 +4,9 @@ import { StatusPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Badge } from '@/components/ui/Badge';
-import { IconClipboardCheck } from '@tabler/icons-react';
+import { IconClipboardCheck, IconPlus } from '@tabler/icons-react';
 import { db } from '@/lib/db';
-import { requireAppUser } from '@/lib/server/session';
+import { requireAppUser, hasPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { dateTime, date } from '@/lib/format';
 
@@ -28,9 +28,36 @@ export default async function InspectionsPage() {
     },
   });
 
+  const canCreate = await hasPermission('inspection.request', { projectId });
+  const nextNumber = inspections.length + 1;
+
   return (
     <div className="flex flex-col gap-5">
       <SectionHeader title="Inspection Requests" />
+
+      {canCreate && (
+        <Card title="Request Inspection" icon={<IconClipboardCheck size={18} />}>
+          <form method="POST" action="/api/v1/inspections" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <input type="hidden" name="redirect_to" value="/field/inspections" />
+            <input name="inspection_number" defaultValue={`INS-${String(nextNumber).padStart(3, '0')}`} readOnly className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" />
+            <input name="subject" required placeholder="Subject" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" />
+            <input name="requested_for" type="datetime-local" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" />
+            <select name="result" defaultValue="pending" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text">
+              <option value="pending">pending</option>
+              <option value="accepted">accepted</option>
+              <option value="accepted_with_comments">accepted_with_comments</option>
+              <option value="rejected">rejected</option>
+              <option value="not_applicable">not_applicable</option>
+            </select>
+            <div className="sm:col-span-2 lg:col-span-4">
+              <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-ecms-amber px-3 py-1.5 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
+                <IconPlus size={16} /> Request Inspection
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
+
       <Card icon={<IconClipboardCheck size={18} />}>
         {inspections.length === 0 ? (
           <EmptyState title="No inspection requests" message="Inspection and test requests will appear here." />

@@ -5,6 +5,7 @@ import { writeAudit } from '@/lib/audit';
 import { deepseek, DEEPSEEK_MODEL } from '@/lib/ai/deepseek-client';
 import { buildSystemPrompt } from '@/lib/ai/system-prompt';
 import { tools as registeredTools, TOOL_FRIENDLY_NAMES } from '@/lib/ai/tools';
+import { hasUsableDeepSeekKey, streamDemoChat } from '@/lib/ai/demo-responder';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,11 @@ export async function processChatRequest(
   });
 
   const tenantId = project?.tenant_id || '';
+
+  if (!hasUsableDeepSeekKey()) {
+    return streamDemoChat(projectId, userId, tenantId, messages, dbClient);
+  }
+
   const systemPrompt = buildSystemPrompt({
     projectName: project?.name,
     projectCode: project?.project_code,

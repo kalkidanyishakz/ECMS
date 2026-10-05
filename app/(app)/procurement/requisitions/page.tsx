@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { IconPlus, IconShoppingCart } from '@tabler/icons-react';
 import { db } from '@/lib/db';
-import { requireAppUser } from '@/lib/server/session';
+import { requireAppUser, hasPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { money, date } from '@/lib/format';
 
@@ -15,7 +15,7 @@ export default async function RequisitionsPage() {
   const ctx = await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
-  const [reqs, costCodes, workPackages] = await Promise.all([
+  const [reqs, costCodes, workPackages, canRequest, canApprove] = await Promise.all([
     db.purchase_requisitions.findMany({
       where: projectId ? { project_id: projectId } : { projects: { tenant_id: tenantId } },
       orderBy: { created_at: 'desc' },
@@ -27,7 +27,10 @@ export default async function RequisitionsPage() {
     }),
     db.cost_codes.findMany({ where: projectId ? { project_id: projectId } : { projects: { tenant_id: tenantId } }, select: { id: true, cost_code: true } }),
     db.work_packages.findMany({ where: projectId ? { project_id: projectId } : { projects: { tenant_id: tenantId } }, select: { id: true, package_code: true } }),
+    hasPermission('procurement.request', { projectId }),
+    hasPermission('procurement.approve', { projectId }),
   ]);
+  void ctx;
 
   const nextNumber = reqs.length + 1;
 
@@ -64,7 +67,7 @@ export default async function RequisitionsPage() {
           <EmptyState title="No requisitions" message="Purchase requisitions raised by the project team appear here." />
         ) : (
           <Table>
-            <THead><TH>Number</TH><TH>Purpose</TH><TH>Package</TH><TH>Requested By</TH><TH>Required</TH><TH>Status</TH><TH className="text-right">Est. Total</TH><TH>Lines</TH></THead>
+            <THead><TH>Number</TH><TH>Purpose</TH><TH>Package</TH><TH>Requested By</TH><TH>Required</TH><TH>Status</TH><TH className="text-right">Est. Total</TH><TH>Lines</TH><TH className="text-right">Actions</TH></THead>
             <TBody>
               {reqs.map((r) => {
                 const total = r.purchase_requisition_lines.reduce((s, l) => s + Number(l.estimated_amount ?? 0), 0);
@@ -78,6 +81,26 @@ export default async function RequisitionsPage() {
                     <TD><StatusPill status={r.status} /></TD>
                     <TD className="text-right font-medium">{money(total)}</TD>
                     <TD>{r.purchase_requisition_lines.length}</TD>
+                    <TD className="text-right">
+                      {r.status === 'draft' && canRequest && (
+                        <form method="POST" action={`/api/v1/requisitions/${r.id}`} className="inline">
+                          <input type="hidden" name="status" value="submitted" />
+                          <button type="submit" className="rounded-md bg-ecms-amber/90 px-2.5 py-1 text-xs font-semibold text-ecms-navy hover:bg-ecms-amber">Submit</button>
+                        </form>
+                      )}
+                      {r.status === 'submitted' && canApprove && (
+                        <span className="inline-flex gap-1.5">
+                          <form method="POST" action={`/api/v1/requisitions/${r.id}`} className="inline">
+                            <input type="hidden" name="status" value="approved" />
+                            <button type="submit" className="rounded-md bg-ecms-success/90 px-2.5 py-1 text-xs font-semibold text-white hover:bg-ecms-success">Approve</button>
+                          </form>
+                          <form method="POST" action={`/api/v1/requisitions/${r.id}`} className="inline">
+                            <input type="hidden" name="status" value="rejected" />
+                            <button type="submit" className="rounded-md bg-ecms-danger/90 px-2.5 py-1 text-xs font-semibold text-white hover:bg-ecms-danger">Reject</button>
+                          </form>
+                        </span>
+                      )}
+                    </TD>
                   </TR>
                 );
               })}

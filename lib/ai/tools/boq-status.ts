@@ -23,6 +23,13 @@ export async function run(
   dbClient: any = defaultDb
 ) {
   const targetProjectId = projectId || args.projectId;
+  if (!targetProjectId) {
+    return {
+      allowed: false,
+      restricted: true,
+      reason: 'Both projectId and userId must be provided.',
+    };
+  }
   const permCheck = await checkToolPermissions(targetProjectId, userId, 'boq.read', dbClient);
   if (!permCheck.allowed) {
     return permCheck;

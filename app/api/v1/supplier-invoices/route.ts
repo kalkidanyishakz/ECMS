@@ -4,7 +4,7 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { getCursorPaginationArgs, paginateResult } from '@/lib/pagination';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +116,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     entityId: invoice.id,
     after: { supplier_id: supplierId, purchase_order_id: purchaseOrderId, gross_amount: grossAmount },
   });
+
+  redirectIfRequested(form);
 
   return NextResponse.json(invoice, { status: 201 });
 });

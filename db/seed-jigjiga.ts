@@ -330,7 +330,152 @@ async function main() {
     console.log(`  Contract amounts updated: ${grandTotal.toLocaleString()} ETB`);
   }
 
-  // ── 8. IPC #1 stub ──────────────────────────────────────────────────────
+  // ── 8. Work packages ─────────────────────────────────────────────────────
+  const wpDefs = [
+    { package_code: 'WP-001', name: 'Earthworks & Site Clearance' },
+    { package_code: 'WP-002', name: 'Drainage & Culverts' },
+    { package_code: 'WP-003', name: 'Pavement & Surfacing' },
+  ];
+  const workPackages: { id: string; package_code: string }[] = [];
+  for (const wp of wpDefs) {
+    const existing = await db.work_packages.findFirst({
+      where: { project_id: project.id, package_code: wp.package_code },
+    });
+    const row = existing ?? await db.work_packages.create({
+      data: {
+        project_id: project.id,
+        contract_id: contract.id,
+        package_code: wp.package_code,
+        name: wp.name,
+        status: 'active',
+        planned_start_date: new Date('2024-10-01'),
+        planned_finish_date: new Date('2025-06-30'),
+        responsible_org_id: orgs['contractor']?.id ?? null,
+      },
+    });
+    workPackages.push({ id: row.id, package_code: row.package_code });
+  }
+  console.log(`  Work packages: ${workPackages.length}`);
+
+  // ── 9. Locations ─────────────────────────────────────────────────────────
+  const locDefs = [
+    { location_code: 'SEC-01', name: 'Section 1 (0+000–3+000)' },
+    { location_code: 'SEC-02', name: 'Section 2 (3+000–6+930)' },
+  ];
+  const locations: { id: string; location_code: string }[] = [];
+  for (const l of locDefs) {
+    const existing = await db.locations.findFirst({
+      where: { project_id: project.id, location_code: l.location_code },
+    });
+    const row = existing ?? await db.locations.create({
+      data: { project_id: project.id, location_type: 'section', location_code: l.location_code, name: l.name },
+    });
+    locations.push({ id: row.id, location_code: row.location_code });
+  }
+  console.log(`  Locations: ${locations.length}`);
+
+  // ── 10. Warehouses ───────────────────────────────────────────────────────
+  const whDefs = [
+    { warehouse_code: 'WH-01', name: 'Main Site Store' },
+    { warehouse_code: 'WH-02', name: 'Culvert Yard' },
+  ];
+  let warehouseCount = 0;
+  for (const w of whDefs) {
+    const existing = await db.warehouses.findFirst({
+      where: { project_id: project.id, warehouse_code: w.warehouse_code },
+    });
+    if (!existing) {
+      await db.warehouses.create({
+        data: { project_id: project.id, warehouse_code: w.warehouse_code, name: w.name, location_id: locations[0]?.id ?? null },
+      });
+    }
+    warehouseCount++;
+  }
+  console.log(`  Warehouses: ${warehouseCount}`);
+
+  // ── 11. Workers ──────────────────────────────────────────────────────────
+  const workerDefs = [
+    { worker_number: 'W-001', display_name: 'Abdi Hassan', trade: 'General Labour' },
+    { worker_number: 'W-002', display_name: 'Fatuma Ali', trade: 'Steel Fixer' },
+    { worker_number: 'W-003', display_name: 'Getachew Bekele', trade: 'Machine Operator' },
+  ];
+  let workerCount = 0;
+  const contractorOrgId = orgs['contractor']?.id;
+  if (contractorOrgId) {
+    for (const wk of workerDefs) {
+      const existing = await db.workers.findFirst({
+        where: { project_id: project.id, worker_number: wk.worker_number },
+      });
+      if (!existing) {
+        await db.workers.create({
+          data: {
+            project_id: project.id,
+            employer_org_id: contractorOrgId,
+            worker_number: wk.worker_number,
+            display_name: wk.display_name,
+            trade: wk.trade,
+            regular_hourly_rate: 80,
+            overtime_hourly_rate: 120,
+            start_date: new Date('2024-10-01'),
+          },
+        });
+      }
+      workerCount++;
+    }
+  }
+  console.log(`  Workers: ${workerCount}`);
+
+  // ── 12. Measurement #1 + lines ───────────────────────────────────────────
+  const measurementNumber = 'M-001';
+  const existingMeasurement = await db.measurements.findFirst({
+    where: { project_id: project.id, measurement_number: measurementNumber },
+  });
+  if (existingMeasurement) {
+    console.log(`  Measurement ${measurementNumber}: already exists (${existingMeasurement.id})`);
+  } else {
+    const boqItems = await db.boq_items.findMany({
+      where: { boq_version_id: boqVersion.id },
+      orderBy: { sort_order: 'asc' },
+      take: 4,
+    });
+    if (boqItems.length > 0) {
+      const measurement = await db.measurements.create({
+        data: {
+          project_id: project.id,
+          contract_id: contract.id,
+          measurement_number: measurementNumber,
+          measurement_date: new Date('2024-11-30'),
+          contractor_org_id: orgs['contractor']?.id ?? null,
+          work_package_id: workPackages[0]?.id ?? null,
+          status: 'draft',
+          summary: 'Initial site measurement — Earthworks & Drainage',
+        },
+      });
+      let lineNo = 1;
+      for (const item of boqItems) {
+        const qty = Number(item.original_quantity) * 0.25;
+        const rate = Number(item.rate);
+        await db.measurement_lines.create({
+          data: {
+            measurement_id: measurement.id,
+            line_number: lineNo++,
+            boq_item_id: item.id,
+            description: item.description,
+            unit: item.unit ?? 'unit',
+            submitted_quantity: qty,
+            accepted_quantity: qty,
+            rate_snapshot: rate,
+            amount_snapshot: qty * rate,
+          },
+        });
+      }
+      console.log(`  Measurement ${measurementNumber}: created with ${lineNo - 1} lines (${measurement.id})`);
+    } else {
+      console.log('  Measurement: skipped (no BOQ items)');
+    }
+  }
+
+  // ── 13. IPC #1 stub ─────────────────────────────────────────────────────
   const ipcPath = join(process.cwd(), 'db', 'seed-data', 'jigjiga-ipc1.json');
   let ipcData: { period_start: string; period_end: string; items: Array<{ item_number: string; current_quantity: number }> };
   try {

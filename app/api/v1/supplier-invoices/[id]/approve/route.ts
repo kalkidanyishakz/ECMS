@@ -3,11 +3,11 @@ import { db } from '@/lib/db';
 import { requireApiPermission, assertSegregationOfDuty } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = withErrorHandling(async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { tenantId, projectId, userId } = await getProjectContext();
 
@@ -65,6 +65,9 @@ export const POST = withErrorHandling(async function POST(_req: NextRequest, { p
     before: { status: invoice.status },
     after: { status: 'approved_for_payment', approved_by: userId },
   });
+
+  const form = await req.formData().catch(() => null);
+  if (form) redirectIfRequested(form);
 
   return NextResponse.json({ ok: true, status: updated.status });
 });

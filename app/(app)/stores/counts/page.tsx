@@ -4,9 +4,9 @@ import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { IconClipboardList } from '@tabler/icons-react';
+import { IconClipboardList, IconPlus } from '@tabler/icons-react';
 import { db } from '@/lib/db';
-import { requireAppUser } from '@/lib/server/session';
+import { requireAppUser, hasPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { date } from '@/lib/format';
 
@@ -16,18 +16,43 @@ export default async function StockCountsPage() {
   await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
-  const counts = await db.stock_counts.findMany({
-    where: projectId ? { project_id: projectId } : { projects: { tenant_id: tenantId } },
-    orderBy: { count_date: 'desc' },
-    include: {
-      warehouses: { select: { warehouse_code: true } },
-      stock_count_lines: { select: { system_quantity: true, counted_quantity: true, variance_quantity: true, inventory_items: { select: { item_code: true } } } },
-    },
-  });
+  const [counts, warehouses, canIssue] = await Promise.all([
+    db.stock_counts.findMany({
+      where: projectId ? { project_id: projectId } : { projects: { tenant_id: tenantId } },
+      orderBy: { count_date: 'desc' },
+      include: {
+        warehouses: { select: { warehouse_code: true } },
+        stock_count_lines: { select: { system_quantity: true, counted_quantity: true, variance_quantity: true, inventory_items: { select: { item_code: true } } } },
+      },
+    }),
+    db.warehouses.findMany({
+      where: projectId ? { project_id: projectId } : { projects: { tenant_id: tenantId } },
+      select: { id: true, warehouse_code: true, name: true },
+    }),
+    hasPermission('inventory.issue', { projectId }),
+  ]);
 
   return (
     <div className="flex flex-col gap-5">
       <SectionHeader title="Stock Counts" />
+
+      {canIssue && (
+        <Card title="New Stock Count" icon={<IconClipboardList size={18} />}>
+          <form method="POST" action="/api/v1/stock-counts" className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <input type="hidden" name="redirect_to" value="/stores/counts" />
+            <input name="count_date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" />
+            <select name="warehouse_id" required className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text">
+              <option value="">Warehouse…</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.warehouse_code}</option>)}
+            </select>
+            <input name="notes" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Notes" />
+            <button type="submit" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-ecms-amber px-3 py-1.5 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
+              <IconPlus size={16} /> Start Count
+            </button>
+          </form>
+        </Card>
+      )}
+
       <Card icon={<IconClipboardList size={18} />}>
         {counts.length === 0 ? (
           <EmptyState title="No stock counts" message="Periodic stock count sheets appear here." />

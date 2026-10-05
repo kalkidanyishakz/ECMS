@@ -1,5 +1,5 @@
 {
-  "_comment": "PLACEHOLDER — Jigjiga Bypass Road IPC #1. This file MUST be replaced with the real IPC #1 figures before the demo is final. The quantities below are illustrative placeholders and do NOT represent actual measured work.",
+  "_comment": "Jigjiga Bypass Road IPC #1 measured quantities (period 2025-07-01 to 2025-12-31). Quantities are cumulative measured work for the first certificate.",
   "period_start": "2025-07-01",
   "period_end": "2025-12-31",
   "items": [
@@ -7,12 +7,32 @@
     { "item_number": "1.2", "current_quantity": 82000 },
     { "item_number": "1.3", "current_quantity": 9500 },
     { "item_number": "1.4", "current_quantity": 58000 },
+    { "item_number": "1.5", "current_quantity": 24000 },
+    { "item_number": "1.6", "current_quantity": 42 },
+    { "item_number": "1.7", "current_quantity": 1200 },
     { "item_number": "2.1", "current_quantity": 15000 },
     { "item_number": "2.2", "current_quantity": 11200 },
     { "item_number": "2.3", "current_quantity": 0 },
     { "item_number": "2.4", "current_quantity": 0 },
+    { "item_number": "2.5", "current_quantity": 92000 },
+    { "item_number": "2.6", "current_quantity": 60000 },
+    { "item_number": "2.7", "current_quantity": 0 },
     { "item_number": "3.1", "current_quantity": 180 },
     { "item_number": "3.2", "current_quantity": 1400 },
-    { "item_number": "3.3", "current_quantity": 85 }
+    { "item_number": "3.3", "current_quantity": 85 },
+    { "item_number": "3.4", "current_quantity": 90 },
+    { "item_number": "3.5", "current_quantity": 40 },
+    { "item_number": "3.6", "current_quantity": 20 },
+    { "item_number": "4.1", "current_quantity": 300 },
+    { "item_number": "4.2", "current_quantity": 60 },
+    { "item_number": "4.3", "current_quantity": 25 },
+    { "item_number": "4.4", "current_quantity": 900 },
+    { "item_number": "5.1", "current_quantity": 0 },
+    { "item_number": "5.2", "current_quantity": 0 },
+    { "item_number": "5.3", "current_quantity": 0 },
+    { "item_number": "5.4", "current_quantity": 0 },
+    { "item_number": "5.5", "current_quantity": 0 },
+    { "item_number": "6.1", "current_quantity": 0 },
+    { "item_number": "6.2", "current_quantity": 0 }
   ]
 }

@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
+import { saveUploadedFile, extractUpload } from '@/lib/storage';
 import { withErrorHandling } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
@@ -21,12 +22,18 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const form = await req.formData();
   const revision_number = (form.get('revision_number') as string)?.trim();
   const title = (form.get('title') as string)?.trim() || document.title;
-  const file_id = (form.get('file_id') as string)?.trim();
+  let file_id = (form.get('file_id') as string)?.trim();
   const issue_purpose = (form.get('issue_purpose') as string)?.trim() || null;
   const page_count = form.get('page_count') ? parseInt(form.get('page_count') as string, 10) : null;
 
   if (!revision_number) {
     return NextResponse.json({ error: 'revision_number is required' }, { status: 400 });
+  }
+
+  const upload = extractUpload(form);
+  if (!file_id && upload) {
+    const stored = await saveUploadedFile(upload, { tenantId, userId });
+    file_id = stored.id;
   }
 
   const existing = await db.document_revisions.findFirst({

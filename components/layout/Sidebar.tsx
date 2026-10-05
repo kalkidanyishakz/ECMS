@@ -7,6 +7,7 @@ import {
   IconAlertTriangle,
   IconBox,
   IconBuilding,
+  IconChevronDown,
   IconCurrencyDollar,
   IconFiles,
   IconFileText,
@@ -42,18 +43,67 @@ const moduleIcons = [
   IconSettings,
 ];
 
+function isModuleActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const [manualHref, setManualHref] = useState<string | null | undefined>(undefined);
+
   return (
     <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-3" aria-label="Modules">
       {navigationModules.map((module, index) => {
         const Icon = moduleIcons[index];
-        const active = pathname === module.href || pathname.startsWith(`${module.href}/`);
+        const active = isModuleActive(pathname, module.href);
+        const subItems = module.sections.flatMap((section) => section.items);
+        const hasSub = subItems.length > 1 || (subItems.length === 1 && subItems[0].href !== module.href);
+        const expanded = hasSub && (manualHref === undefined ? active : manualHref === module.href);
         return (
-          <Link key={module.href} href={module.href} onClick={onNavigate} className={cn('group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors', active ? 'bg-ecms-elevated text-ecms-amber' : 'text-ecms-muted hover:bg-ecms-elevated hover:text-ecms-text')}>
-            <Icon size={18} stroke={1.7} className={cn('shrink-0 transition-colors', active ? 'text-ecms-amber' : 'text-ecms-muted group-hover:text-ecms-text')} />
-            <span className="truncate">{module.label}</span>
-          </Link>
+          <div key={module.href} className="flex flex-col">
+            <div className={cn('group flex items-center rounded-lg transition-colors', active ? 'bg-ecms-elevated' : 'hover:bg-ecms-elevated')}>
+              <Link
+                href={module.href}
+                onClick={onNavigate}
+                className={cn('flex flex-1 items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors', active ? 'text-ecms-amber' : 'text-ecms-muted group-hover:text-ecms-text')}
+              >
+                <Icon size={18} stroke={1.7} className={cn('shrink-0 transition-colors', active ? 'text-ecms-amber' : 'text-ecms-muted group-hover:text-ecms-text')} />
+                <span className="truncate">{module.label}</span>
+              </Link>
+              {hasSub && (
+                <button
+                  type="button"
+                  aria-label={`Toggle ${module.label} sub-menu`}
+                  aria-expanded={expanded}
+                  onClick={() => setManualHref(expanded ? null : module.href)}
+                  className="mr-1 rounded-md p-1.5 text-ecms-muted hover:text-ecms-text"
+                >
+                  <IconChevronDown size={15} className={cn('transition-transform', expanded ? 'rotate-180' : '')} />
+                </button>
+              )}
+            </div>
+            {expanded && (
+              <div className="mb-1 ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-ecms-border pl-2">
+                {subItems.map((item) => {
+                  const itemPath = item.href.split('?')[0];
+                  const itemActive = !item.href.includes('?') && pathname === itemPath;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                onClick={() => {
+                  setManualHref(undefined);
+                  onNavigate?.();
+                }}
+                      className={cn('rounded-md px-3 py-1.5 text-xs transition-colors', itemActive ? 'text-ecms-amber' : 'text-ecms-muted hover:bg-ecms-elevated hover:text-ecms-text')}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>

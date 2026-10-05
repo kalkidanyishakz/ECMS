@@ -127,12 +127,13 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
       </Card>
 
       <Card title="Add Revision">
-        <form method="POST" action={`/api/v1/documents/${document.id}/revisions`} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <form method="POST" action={`/api/v1/documents/${document.id}/revisions`} encType="multipart/form-data" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <input name="revision_number" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Revision number (e.g. Rev A)" required />
           <input name="title" defaultValue={document.title} className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Title" />
           <input name="issue_purpose" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Issue purpose (optional)" />
           <input name="page_count" type="number" min="0" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Page count" />
-          <div className="sm:col-span-2 lg:col-span-4 flex items-end">
+          <input name="file" type="file" className="text-sm text-ecms-muted file:mr-2 file:rounded-lg file:border-0 file:bg-ecms-elevated file:px-2 file:py-1.5 file:text-ecms-text" />
+          <div className="sm:col-span-2 lg:col-span-5 flex items-end">
             <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-ecms-amber px-3 py-1.5 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
               Add Revision
             </button>

@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { tools, projectSummary, boqStatus, ipcStatus, procurementStatus, workforceStatus, recentActivity } from './index';
 
+function isSuccessResult<T extends object, K extends string>(
+  res: T,
+  successKey: K
+): res is Extract<T, Record<K, unknown>> {
+  return successKey in res;
+}
+
 // ---------------------------------------------------------------------------
 // Mock Database Fixtures
 // ---------------------------------------------------------------------------
@@ -90,9 +97,9 @@ function createMockDb() {
             original_contract_amount: 45000000,
             currency: 'ETB',
             contract_parties: [
-              { role: 'employer', organizations: { name: 'Ethiopian Roads Authority' } },
-              { role: 'contractor', organizations: { name: 'China Railway Corp' } },
-              { role: 'engineer', organizations: { name: 'SMEC Engineering' } },
+      { role: 'employer', organizations: { legal_name: 'Ethiopian Roads Authority' } },
+      { role: 'contractor', organizations: { legal_name: 'China Railway Corp' } },
+      { role: 'engineer', organizations: { legal_name: 'SMEC Engineering' } },
             ],
           },
         ],
@@ -293,6 +300,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
     it('returns real data for authorized Project Manager', async () => {
       const res = await projectSummary.run(PROJECT_ID, PM_USER_ID, {}, mockDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'name')) throw new Error('expected project summary result');
       expect(res.name).toBe('Modjo-Hawassa Highway');
       expect(res.contractValue).toBe(50000000);
       expect(res.employerName).toBe('Ethiopian Roads Authority');
@@ -316,6 +324,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
     it('returns real data for authorized Project Manager with flags for >90% and overrun', async () => {
       const res = await boqStatus.run(PROJECT_ID, PM_USER_ID, {}, mockDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'totalItems')) throw new Error('expected BOQ status result');
       expect(res.totalItems).toBe(2);
       expect(res.over90PercentCount).toBe(2); // item-1 (95%) and item-2 (110%)
       expect(res.overrunCount).toBe(1); // item-2 (110%)
@@ -360,6 +369,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
 
       const res = await boqStatus.run(PROJECT_ID, PM_USER_ID, {}, customDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'totalItems')) throw new Error('expected BOQ status result');
       expect(res.boqVersionId).toBe('boq-approved-1');
       expect(queriedCalls).toContain(`contracts.findFirst: ${PROJECT_ID}`);
       expect(queriedCalls).toContain(`boq_versions.findFirst: contract_id=contract-custom-123, status=approved`);
@@ -388,11 +398,14 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
     it('returns list of IPCs and current in-progress calculation status for PM', async () => {
       const res = await ipcStatus.run(PROJECT_ID, PM_USER_ID, {}, mockDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'totalIpcs')) throw new Error('expected IPC status result');
       expect(res.totalIpcs).toBe(2);
       expect(res.currentInProgressIpc).toBeDefined();
-      expect(res.currentInProgressIpc.ipcNumber).toBe(2);
-      expect(res.currentInProgressIpc.status).toBe('draft');
-      expect(res.currentInProgressIpc.isCalculated).toBe(true);
+      const inProgress = res.currentInProgressIpc;
+      if (!inProgress) throw new Error('expected current in-progress IPC');
+      expect(inProgress.ipcNumber).toBe(2);
+      expect(inProgress.status).toBe('draft');
+      expect(inProgress.isCalculated).toBe(true);
     });
 
     it('returns restricted result for unauthorized user', async () => {
@@ -405,6 +418,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
     it('returns open PRs, POs, and top stock materials by value for PM', async () => {
       const res = await procurementStatus.run(PROJECT_ID, PM_USER_ID, { topN: 2 }, mockDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'requisitionsSummary')) throw new Error('expected procurement status result');
       expect(res.requisitionsSummary.totalCount).toBe(2);
       expect(res.purchaseOrdersSummary.totalCount).toBe(1);
       expect(res.topMaterialsByValue).toHaveLength(2);
@@ -423,9 +437,14 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
     it('returns roster count, timesheet status, and payroll status for PM', async () => {
       const res = await workforceStatus.run(PROJECT_ID, PM_USER_ID, {}, mockDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'roster')) throw new Error('expected workforce status result');
       expect(res.roster.totalCount).toBe(2);
-      expect(res.latestTimesheet.timesheetNumber).toBe('TS-2024-W05');
-      expect(res.latestPayrollBatch.payrollNumber).toBe('PAY-2024-01');
+      const latestTimesheet = res.latestTimesheet;
+      const latestPayrollBatch = res.latestPayrollBatch;
+      if (!latestTimesheet) throw new Error('expected latest timesheet');
+      if (!latestPayrollBatch) throw new Error('expected latest payroll batch');
+      expect(latestTimesheet.timesheetNumber).toBe('TS-2024-W05');
+      expect(latestPayrollBatch.payrollNumber).toBe('PAY-2024-01');
     });
 
     it('returns restricted result for unauthorized user', async () => {
@@ -438,6 +457,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
     it('returns formatted plain language audit summaries for PM', async () => {
       const res = await recentActivity.run(PROJECT_ID, PM_USER_ID, { limit: 5 }, mockDb);
       expect(res).not.toHaveProperty('restricted');
+      if (!isSuccessResult(res, 'events')) throw new Error('expected recent activity result');
       expect(res.events).toHaveLength(1);
       expect(res.events[0].summary).toContain('Requisition #14 was approved by John Doe');
     });

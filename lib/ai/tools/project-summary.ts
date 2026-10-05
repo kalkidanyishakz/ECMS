@@ -22,6 +22,13 @@ export async function run(
   dbClient: any = defaultDb
 ) {
   const targetProjectId = projectId || args.projectId;
+  if (!targetProjectId) {
+    return {
+      allowed: false,
+      restricted: true,
+      reason: 'Both projectId and userId must be provided.',
+    };
+  }
   const permCheck = await checkToolPermissions(targetProjectId, userId, 'contract.read', dbClient);
   if (!permCheck.allowed) {
     return permCheck;
@@ -74,9 +81,9 @@ export async function run(
 
   if (activeContract?.contract_parties) {
     for (const party of activeContract.contract_parties) {
-      if (party.role === 'employer') employerName = party.organizations?.name || employerName;
-      if (party.role === 'contractor') contractorName = party.organizations?.name || contractorName;
-      if (party.role === 'engineer') engineerName = party.organizations?.name || engineerName;
+      if (party.role === 'employer') employerName = party.organizations?.legal_name || party.organizations?.name || employerName;
+      if (party.role === 'contractor') contractorName = party.organizations?.legal_name || party.organizations?.name || contractorName;
+      if (party.role === 'engineer') engineerName = party.organizations?.legal_name || party.organizations?.name || engineerName;
     }
   }
 

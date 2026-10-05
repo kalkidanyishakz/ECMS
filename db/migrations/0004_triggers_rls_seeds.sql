@@ -3,6 +3,11 @@
 
 BEGIN;
 
+-- Object names created here live in the `ecms` schema. Unlike 0001..0003 this
+-- file previously omitted the search_path, so plpgsql declarations referencing
+-- enum types (e.g. `supplier_status`) failed on a fresh database.
+SET search_path TO ecms, public;
+
 -- =========================================================================
 -- Section 1: RLS Helper Functions
 -- =========================================================================
@@ -813,6 +818,27 @@ $fn$;
 -- Section 3: Triggers
 -- =========================================================================
 
+-- This file re-declares the triggers already created by 0001. Drop the
+-- `trg_%` triggers first so the section is safe to apply after 0001 and on
+-- every re-run (CREATE TRIGGER has no IF NOT EXISTS).
+DO $guard$
+DECLARE
+    existing record;
+BEGIN
+    FOR existing IN
+        SELECT c.relname AS table_name, t.tgname AS trigger_name
+        FROM pg_trigger t
+        JOIN pg_class c ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'ecms'
+          AND t.tgname LIKE 'trg\_%'
+          AND NOT t.tgisinternal
+    LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS %I ON ecms.%I', existing.trigger_name, existing.table_name);
+    END LOOP;
+END;
+$guard$;
+
 -- Import rows: use set_updated_at instead of bump_row_version
 CREATE TRIGGER trg_import_rows_updated
 BEFORE UPDATE ON import_rows
@@ -972,6 +998,24 @@ FOR EACH ROW EXECUTE FUNCTION protect_locked_ipc_measurement_link();
 -- =========================================================================
 -- Section 4: RLS Policies
 -- =========================================================================
+
+-- As with the triggers above, 0001 already created these policies. Drop the
+-- `%_policy` policies first so the section is idempotent (CREATE POLICY has no
+-- IF NOT EXISTS).
+DO $guard$
+DECLARE
+    existing record;
+BEGIN
+    FOR existing IN
+        SELECT tablename AS table_name, policyname AS policy_name
+        FROM pg_policies
+        WHERE schemaname = 'ecms'
+          AND policyname LIKE '%\_policy'
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON ecms.%I', existing.policy_name, existing.table_name);
+    END LOOP;
+END;
+$guard$;
 
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY projects_read_policy ON projects

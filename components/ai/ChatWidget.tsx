@@ -22,6 +22,7 @@ export function ChatWidget({ projectId, initialIsOpen = false }: ChatWidgetProps
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const idSeq = useRef(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,8 +38,8 @@ export function ChatWidget({ projectId, initialIsOpen = false }: ChatWidgetProps
     const textToSend = (customText || inputValue).trim();
     if (!textToSend || isSubmitting) return;
 
-    const userMsgId = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const assistantMsgId = `ast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const userMsgId = `usr-${idSeq.current++}`;
+    const assistantMsgId = `ast-${idSeq.current++}`;
 
     const userMessage: ChatMessage = { id: userMsgId, role: 'user', content: textToSend };
     const assistantMessage: ChatMessage = { id: assistantMsgId, role: 'assistant', content: '', toolTraces: [] };
@@ -136,11 +137,12 @@ export function ChatWidget({ projectId, initialIsOpen = false }: ChatWidgetProps
           }
         }
       }
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Connection failed';
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsgId
-            ? { ...m, content: `[Error: ${err.message || 'Connection failed'}]`, isError: true }
+            ? { ...m, content: `[Error: ${message}]`, isError: true }
             : m
         )
       );

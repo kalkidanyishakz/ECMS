@@ -71,7 +71,7 @@ export default async function FieldMeasurementsPage() {
             <TBody>
               {measurements.map((m) => (
                 <TR key={m.id} className="hover:bg-ecms-elevated/40">
-                  <TD className="font-medium">{m.measurement_number}</TD>
+                  <TD className="font-medium"><Link href={`/field/measurement/${m.id}`} className="hover:text-ecms-amber">{m.measurement_number}</Link></TD>
                   <TD className="text-ecms-muted">{m.contracts.contract_number}</TD>
                   <TD className="text-ecms-muted">{m.work_packages?.package_code ?? '—'}</TD>
                   <TD>{date(m.measurement_date)}</TD>

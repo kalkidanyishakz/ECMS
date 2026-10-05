@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { requireApiPermission, assertSegregationOfDuty } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +28,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     { tenantId, projectId, entityType: 'stock_counts', entityId: stockCount.id, target: 'posted' }
   );
   if (blocked) return blocked;
+
+  const form = await req.formData().catch(() => null);
 
   const lines = await db.stock_count_lines.findMany({
     where: { stock_count_id: id },
@@ -73,6 +75,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     before: { status: stockCount.status },
     after: { status: 'posted', posted_at: now },
   });
+
+  if (form) redirectIfRequested(form);
 
   return NextResponse.json({ status: 'posted', posted_at: now });
 });

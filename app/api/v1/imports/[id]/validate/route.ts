@@ -4,6 +4,8 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { withErrorHandling } from '@/lib/api-handler';
+import type { Prisma } from '@/lib/generated/prisma/client';
+import type { issue_severity } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +38,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
 
   let validCount = 0;
   let errorCount = 0;
-  const exceptions: Array<{ import_row_id: string; message: string; severity: string; field_name?: string }> = [];
+  const exceptions: Array<{ import_row_id: string; message: string; severity: issue_severity; field_name?: string }> = [];
 
   await db.$transaction(async (tx) => {
+    await tx.import_exceptions.deleteMany({ where: { import_job_id: id } });
+
     for (const row of rows) {
       const sourceData = row.source_data as Record<string, unknown>;
       const normalizedData: Record<string, unknown> = {};
@@ -56,7 +60,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
           exceptions.push({
             import_row_id: row.id,
             message: `Missing required column: ${sourceColumn}`,
-            severity: 'error',
+            severity: 'high',
             field_name: sourceColumn,
           });
         }
@@ -68,7 +72,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         exceptions.push({
           import_row_id: row.id,
           message: 'Row contains no valid data after mapping',
-          severity: 'error',
+          severity: 'high',
         });
       }
 
@@ -79,8 +83,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
       await tx.import_rows.update({
         where: { id: row.id },
         data: {
-          status: rowStatus as any,
-          normalized_data: normalizedData as any,
+          status: rowStatus,
+          normalized_data: normalizedData as Prisma.InputJsonValue,
           error_count: rowErrors,
         },
       });
@@ -91,7 +95,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         data: exceptions.map((e) => ({
           import_job_id: id,
           import_row_id: e.import_row_id,
-          severity: e.severity as any,
+          severity: e.severity,
           exception_code: 'MAPPING_ERROR',
           field_name: e.field_name ?? null,
           message: e.message,
@@ -101,11 +105,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
       });
     }
 
-    const jobStatus = errorCount > 0 ? 'exceptions' : 'ready';
+    const jobStatus = errorCount > 0 ? 'mapping' : 'ready';
     await tx.import_jobs.update({
       where: { id },
       data: {
-        status: jobStatus as any,
+        status: jobStatus,
         statistics: { valid: validCount, errors: errorCount, total: rows.length },
       },
     });
@@ -119,11 +123,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     entityType: 'import_jobs',
     entityId: importJob.id,
     before: { status: importJob.status },
-    after: { status: errorCount > 0 ? 'exceptions' : 'ready', valid: validCount, errors: errorCount },
+    after: { status: errorCount > 0 ? 'mapping' : 'ready', valid: validCount, errors: errorCount },
   });
 
   return NextResponse.json({
-    status: errorCount > 0 ? 'exceptions' : 'ready',
+    status: errorCount > 0 ? 'mapping' : 'ready',
     valid: validCount,
     errors: errorCount,
     total: rows.length,

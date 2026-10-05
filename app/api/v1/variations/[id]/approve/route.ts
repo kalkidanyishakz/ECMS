@@ -4,7 +4,7 @@ import { requireApiPermission, assertSegregationOfDuty } from '@/lib/server/sess
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { variationTransitions } from '@/lib/transitions';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +36,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   );
   if (sodBlocked) return sodBlocked;
 
+  const form = await req.formData();
+
   await db.variations.update({
     where: { id },
     data: { status: 'approved', approved_at: new Date(), approved_by: userId },
@@ -51,6 +53,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     before: { status: variation.status },
     after: { status: 'approved' },
   });
+
+  redirectIfRequested(form);
 
   return NextResponse.json({ status: 'approved' });
 });

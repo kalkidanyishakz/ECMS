@@ -4,9 +4,9 @@ import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { IconClipboardList } from '@tabler/icons-react';
+import { IconClipboardList, IconPlus } from '@tabler/icons-react';
 import { db } from '@/lib/db';
-import { requireAppUser } from '@/lib/server/session';
+import { requireAppUser, hasPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { date, num } from '@/lib/format';
 
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function StockCountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireAppUser();
-  const { projectId } = await getProjectContext();
+  await getProjectContext();
 
   const stockCount = await db.stock_counts.findUnique({
     where: { id },
@@ -30,6 +30,15 @@ export default async function StockCountDetailPage({ params }: { params: Promise
 
   if (!stockCount) notFound();
 
+  const [inventoryItems, canIssue] = await Promise.all([
+    db.inventory_items.findMany({
+      where: { project_id: stockCount.project_id, is_active: true },
+      orderBy: { item_code: 'asc' },
+      select: { id: true, item_code: true, description: true, unit: true },
+    }),
+    hasPermission('inventory.issue', { projectId: stockCount.project_id }),
+  ]);
+
   const totalVariance = stockCount.stock_count_lines.reduce((s, l) => s + Number(l.variance_quantity), 0);
   const varianceLines = stockCount.stock_count_lines.filter((l) => Number(l.variance_quantity) !== 0).length;
 
@@ -38,17 +47,53 @@ export default async function StockCountDetailPage({ params }: { params: Promise
       <SectionHeader
         title={`Stock Count ${stockCount.count_number}`}
         actions={
-          stockCount.status === 'draft' ? (
-            <form method="POST" action={`/api/v1/stock-counts/${stockCount.id}/submit`}>
-              <button type="submit" className="rounded-lg bg-ecms-amber px-4 py-2 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
-                Submit for Review
-              </button>
-            </form>
-          ) : (
-            <StatusPill status={stockCount.status} />
-          )
+          <div className="flex items-center gap-2">
+            {stockCount.status === 'draft' && (
+              <form method="POST" action={`/api/v1/stock-counts/${stockCount.id}/submit`}>
+                <button type="submit" className="rounded-lg bg-ecms-amber px-4 py-2 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
+                  Submit for Review
+                </button>
+              </form>
+            )}
+            {stockCount.status === 'submitted' && canIssue && (
+              <form method="POST" action={`/api/v1/stock-counts/${stockCount.id}/approve`}>
+                <button type="submit" className="rounded-lg bg-ecms-success px-4 py-2 text-sm font-semibold text-white hover:bg-ecms-success/90">
+                  Approve
+                </button>
+              </form>
+            )}
+            {stockCount.status === 'approved' && canIssue && (
+              <form method="POST" action={`/api/v1/stock-counts/${stockCount.id}/post`}>
+                <button type="submit" className="rounded-lg bg-ecms-navy px-4 py-2 text-sm font-semibold text-white hover:bg-ecms-navy/90">
+                  Post Adjustments
+                </button>
+              </form>
+            )}
+            {!['draft', 'submitted', 'approved'].includes(stockCount.status) && <StatusPill status={stockCount.status} />}
+          </div>
         }
       />
+
+      {canIssue && stockCount.status === 'draft' && (
+        <Card title="Add Count Line" icon={<IconClipboardList size={18} />}>
+          <form method="POST" action={`/api/v1/stock-counts/${stockCount.id}/lines`} className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <input type="hidden" name="redirect_to" value={`/stores/counts/${stockCount.id}`} />
+            <select name="inventory_item_id" required className="sm:col-span-2 rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text">
+              <option value="">Inventory item…</option>
+              {inventoryItems.map((i) => <option key={i.id} value={i.id}>{i.item_code} — {i.description}</option>)}
+            </select>
+            <input name="counted_quantity" type="number" step="0.001" required className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Counted qty" />
+            <input name="unit_cost_snapshot" type="number" step="0.01" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Unit cost" />
+            <div className="flex gap-2">
+              <input name="reason" className="flex-1 rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Reason" />
+              <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-ecms-amber px-3 py-1.5 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
+                <IconPlus size={16} />
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
+
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card title="Stock Count Info" icon={<IconClipboardList size={18} />}>

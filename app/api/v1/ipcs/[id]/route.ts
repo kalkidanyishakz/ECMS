@@ -53,6 +53,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     recommended_at?: Date;
     certified_by?: string;
     certified_at?: Date;
+    locked_at?: Date;
     paid_at?: Date;
     paid_by?: string;
   } = { status: target };
@@ -66,6 +67,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   } else if (target === 'certified') {
     data.certified_by = userId;
     data.certified_at = now;
+    data.locked_at = now;
   } else if (target === 'paid') {
     const blocked = await assertSegregationOfDuty(
       userId,

@@ -4,7 +4,7 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { variationTransitions } from '@/lib/transitions';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +28,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const auth = await requireApiPermission('variation.create', projectId);
   if (auth instanceof NextResponse) return auth;
 
+  const form = await req.formData();
+
   await db.variations.update({
     where: { id },
     data: { status: 'submitted', submitted_at: new Date() },
@@ -43,6 +45,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     before: { status: variation.status },
     after: { status: 'submitted' },
   });
+
+  redirectIfRequested(form);
 
   return NextResponse.json({ status: 'submitted' });
 });

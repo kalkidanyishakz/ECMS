@@ -7,8 +7,10 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { WorkflowStepper } from '@/components/ui/WorkflowStepper';
 import { IconRuler } from '@tabler/icons-react';
 import { db } from '@/lib/db';
-import { requireAppUser } from '@/lib/server/session';
+import { getAppUser, hasAnyPermission, requireAppUser } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
+import { MeasurementEntry, type BoqOption, type MeasurementLineOption } from '@/components/measurement/MeasurementEntry';
+import { MeasurementVerify, type VerifyLine } from '@/components/measurement/MeasurementVerify';
 import { date, num } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +55,38 @@ export default async function MeasurementDetailPage({ params }: { params: Promis
 
   if (!measurement) notFound();
 
+  const ctx = await getAppUser({ projectId: measurement.project_id });
+  const canCreate = ctx ? hasAnyPermission(ctx.roles, ctx.permissions, 'measurement.create') : false;
+  const canVerify = ctx ? hasAnyPermission(ctx.roles, ctx.permissions, 'measurement.verify') : false;
+  const isSubmitter = Boolean(ctx && measurement.submitted_by === ctx.appUser.id);
+
+  const boqRows = await db.boq_items.findMany({
+    where: { boq_versions: { contract_id: measurement.contract_id, status: 'approved' } },
+    orderBy: { item_number: 'asc' },
+  });
+  const boqItems: BoqOption[] = boqRows.map((b) => ({
+    id: b.id,
+    itemNumber: b.item_number,
+    description: b.description,
+    unit: b.unit ?? '',
+    rate: Number(b.rate ?? 0),
+  }));
+  const lineOptions: MeasurementLineOption[] = measurement.measurement_lines.map((l) => ({
+    id: l.id,
+    lineNumber: l.line_number,
+    itemNumber: l.boq_items.item_number,
+    description: l.description ?? l.boq_items.description,
+    unit: l.unit,
+  }));
+  const verifyLines: VerifyLine[] = measurement.measurement_lines.map((l) => ({
+    id: l.id,
+    lineNumber: l.line_number,
+    itemNumber: l.boq_items.item_number,
+    description: l.description ?? l.boq_items.description,
+    unit: l.unit,
+    submittedQuantity: Number(l.submitted_quantity),
+  }));
+
   const nextStatuses = transitions[measurement.status] ?? [];
   const completedSteps = measurement.status === 'verified' ? ['draft', 'submitted', 'verified'] :
     measurement.status === 'submitted' ? ['draft', 'submitted'] :
@@ -80,7 +114,7 @@ export default async function MeasurementDetailPage({ params }: { params: Promis
       <SectionHeader
         title={`Measurement ${measurement.measurement_number}`}
         actions={
-          nextAction ? (
+          nextAction && measurement.status !== 'submitted' ? (
             <form method="POST" action={`/api/v1/measurements/${measurement.id}/${actionSubRoute[nextAction]}`}>
               <button type="submit" className="rounded-lg bg-ecms-amber px-4 py-2 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
                 {actionLabel[nextAction] ?? nextAction}
@@ -95,6 +129,22 @@ export default async function MeasurementDetailPage({ params }: { params: Promis
       <Card bodyClassName="pt-5 pb-6 px-6">
         <WorkflowStepper steps={measurementSteps} current={measurement.status} completedSteps={completedSteps} />
       </Card>
+
+      <MeasurementEntry
+        measurementId={measurement.id}
+        status={measurement.status}
+        canCreate={canCreate}
+        boqItems={boqItems}
+        lines={lineOptions}
+      />
+
+      <MeasurementVerify
+        measurementId={measurement.id}
+        status={measurement.status}
+        canVerify={canVerify}
+        isSubmitter={isSubmitter}
+        lines={verifyLines}
+      />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card title="Measurement Info" icon={<IconRuler size={18} />}>

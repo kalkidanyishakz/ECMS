@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, redirectIfRequested } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +50,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     entityId: stockCount.id,
     after: { count_number, warehouse_id, count_date, status: 'draft' },
   });
+
+  redirectIfRequested(form);
 
   return NextResponse.json(stockCount, { status: 201 });
 });

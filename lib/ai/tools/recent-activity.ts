@@ -107,6 +107,14 @@ export async function run(
   const targetProjectId = projectId || args.projectId;
   const limit = args.limit || 10;
 
+  if (!targetProjectId) {
+    return {
+      allowed: false,
+      restricted: true,
+      reason: 'Both projectId and userId must be provided.',
+    };
+  }
+
   const permCheck = await checkToolPermissions(targetProjectId, userId, 'audit.read', dbClient);
   if (!permCheck.allowed) {
     return permCheck;

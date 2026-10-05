@@ -7,7 +7,8 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Badge } from '@/components/ui/Badge';
 import { IconFileInvoice } from '@tabler/icons-react';
 import { db } from '@/lib/db';
-import { requireAppUser } from '@/lib/server/session';
+import { getAppUser, hasAnyPermission, requireAppUser } from '@/lib/server/session';
+import { IpcAssembly, type IpcCandidateLine } from '@/components/ipc/IpcAssembly';
 import { money, date } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,34 @@ export default async function IpcDetailPage({ params }: { params: Promise<{ id: 
 
   if (!ipc) notFound();
 
+  const ctx = await getAppUser({ projectId: ipc.project_id });
+  const canPrepare = ctx ? hasAnyPermission(ctx.roles, ctx.permissions, 'ipc.prepare') : false;
+  const canPay = ctx ? hasAnyPermission(ctx.roles, ctx.permissions, 'payment.record') : false;
+
+  const candidateRows = ipc.status === 'draft'
+    ? await db.measurement_lines.findMany({
+        where: {
+          accepted_quantity: { not: null },
+          measurements: { contract_id: ipc.contract_id, status: 'verified' },
+        },
+        orderBy: { created_at: 'asc' },
+        include: {
+          boq_items: { select: { item_number: true, description: true } },
+          measurements: { select: { measurement_number: true, measurement_date: true } },
+        },
+      })
+    : [];
+
+  const candidates: IpcCandidateLine[] = candidateRows.map((l) => ({
+    id: l.id,
+    itemNumber: l.boq_items.item_number,
+    description: l.description ?? l.boq_items.description,
+    unit: l.unit,
+    acceptedQuantity: Number(l.accepted_quantity ?? 0),
+    measurementNumber: l.measurements.measurement_number,
+    measurementDate: date(l.measurements.measurement_date),
+  }));
+
   const nextStatuses = transitions[ipc.status] ?? [];
   const totals = ipc.ipc_lines.reduce((acc, l) => {
     acc.previous += Number(l.previous_amount);
@@ -68,6 +97,16 @@ export default async function IpcDetailPage({ params }: { params: Promise<{ id: 
             <StatusPill status={ipc.status} />
           )
         }
+      />
+
+      <IpcAssembly
+        ipcId={ipc.id}
+        currency={ipc.currency}
+        status={ipc.status}
+        netCurrent={Number(ipc.net_current_amount)}
+        canPrepare={canPrepare}
+        canPay={canPay}
+        candidates={candidates}
       />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">

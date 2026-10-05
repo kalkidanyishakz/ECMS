@@ -6,6 +6,17 @@ import { db } from '@/lib/db';
 export const auth = betterAuth({
   appName: 'ECMS',
   secret: process.env.BETTER_AUTH_SECRET,
+  // Trust the browser's own origin (plus any comma-separated origins in
+  // BETTER_AUTH_TRUSTED_ORIGINS) so credential sign-in works when the demo is
+  // reached by IP/host instead of the build-time localhost URL.
+  trustedOrigins: async (request) => {
+    const origin = request?.headers.get('origin');
+    const configured = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return [origin, ...configured];
+  },
   advanced: {
     database: {
       generateId: 'uuid',

@@ -59,6 +59,7 @@ export const navigationModules: NavigationModule[] = [
       { label: 'Procurement', items: [
         { label: 'Suppliers', href: '/procurement' },
         { label: 'Requisitions', href: '/procurement/requisitions' },
+        { label: 'Supplier Quotes', href: '/procurement/quotes' },
         { label: 'Purchase Orders', href: '/procurement/orders' },
         { label: 'Goods Received', href: '/procurement/receipts' },
         { label: 'Invoices & Match', href: '/procurement/invoices' },

@@ -31,6 +31,7 @@ export default function LoginPage() {
     { role: 'Project Manager', email: 'pm@ecms.app', pass: 'demo1234' },
     { role: 'Site Supervisor', email: 'supervisor@ecms.app', pass: 'demo1234' },
     { role: 'Storekeeper', email: 'store@ecms.app', pass: 'demo1234' },
+    { role: 'Finance Officer', email: 'finance@ecms.app', pass: 'demo1234' },
   ];
 
   return (

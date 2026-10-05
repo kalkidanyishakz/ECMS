@@ -16,8 +16,11 @@ export const GET = withErrorHandling(async function GET(_req: NextRequest, { par
   const importJob = await db.import_jobs.findUnique({
     where: { id },
     include: {
+      import_sheets: {
+        orderBy: { sheet_ordinal: 'asc' },
+      },
       import_rows: {
-        orderBy: { source_row_number: 'asc' },
+        orderBy: [{ import_sheet_id: 'asc' }, { source_row_number: 'asc' }],
       },
       import_mappings: true,
       import_exceptions: {
@@ -30,5 +33,8 @@ export const GET = withErrorHandling(async function GET(_req: NextRequest, { par
     return NextResponse.json({ error: 'Import job not found' }, { status: 404 });
   }
 
-  return NextResponse.json(importJob);
+  const safeJob = JSON.parse(
+    JSON.stringify(importJob, (_key, value) => (typeof value === 'bigint' ? value.toString() : value)),
+  );
+  return NextResponse.json(safeJob);
 });

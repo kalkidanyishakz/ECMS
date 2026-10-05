@@ -7,6 +7,17 @@ import { withErrorHandling } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toText(value: unknown): string {
+  return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function toNumber(value: unknown): number {
+  const n = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { tenantId, projectId, userId } = await getProjectContext();
@@ -30,6 +41,15 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     return NextResponse.json({ error: 'No valid rows to commit' }, { status: 400 });
   }
 
+  const controlTotals = (importJob.control_totals ?? {}) as Record<string, unknown>;
+  const defaultBoqVersionId = toText(controlTotals.boq_version_id);
+  if (importJob.import_kind === 'boq' && !defaultBoqVersionId) {
+    return NextResponse.json(
+      { error: 'boq_version_id is required for BOQ imports. Create the import with a target BOQ version.' },
+      { status: 400 }
+    );
+  }
+
   let committedCount = 0;
   let skippedCount = 0;
 
@@ -42,17 +62,55 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     for (const row of rows) {
       const data = (row.normalized_data ?? row.source_data) as Record<string, unknown>;
 
+      await tx.$executeRawUnsafe('SAVEPOINT import_row');
       try {
         if (importJob.import_kind === 'boq') {
+          const boqVersionId = toText(data.boq_version_id) || defaultBoqVersionId;
+
+          let sectionId: string | null = null;
+          const rawSection = toText(data.section_id);
+          if (rawSection && UUID_RE.test(rawSection)) {
+            sectionId = rawSection;
+          } else {
+            const sectionCode = toText(data.section_code) || rawSection;
+            if (sectionCode) {
+              const existing = await tx.boq_sections.findFirst({
+                where: { boq_version_id: boqVersionId, section_code: sectionCode },
+                select: { id: true },
+              });
+              if (existing) {
+                sectionId = existing.id;
+              } else {
+                const created = await tx.boq_sections.create({
+                  data: {
+                    boq_version_id: boqVersionId,
+                    section_code: sectionCode,
+                    title: toText(data.section_title) || sectionCode,
+                  },
+                  select: { id: true },
+                });
+                sectionId = created.id;
+              }
+            }
+          }
+
+          const qty = toNumber(data.quantity ?? data.original_quantity);
+          const rate = toNumber(data.unit_rate ?? data.rate);
+          const unit = toText(data.unit) || null;
+
           const boqItem = await tx.boq_items.create({
             data: {
-              boq_version_id: (data.boq_version_id as string) || '',
-              item_number: (data.item_number as string) || `IMP-${row.source_row_number}`,
-              description: (data.description as string) || 'Imported item',
-              unit: (data.unit as string) || null,
-              original_quantity: parseFloat(data.quantity as string) || 0,
-              rate: parseFloat(data.unit_rate as string) || 0,
-              section_id: (data.section_id as string) || null,
+              boq_version_id: boqVersionId,
+              item_number: toText(data.item_number) || `IMP-${row.source_row_number}`,
+              source_code: toText(data.source_code) || null,
+              description: toText(data.description) || 'Imported item',
+              unit,
+              original_quantity: qty,
+              approved_quantity: qty,
+              rate,
+              quantity_trackable: Boolean(unit),
+              approved_amount: qty * rate,
+              section_id: sectionId,
             },
           });
 
@@ -122,7 +180,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
           });
           skippedCount++;
         }
+        await tx.$executeRawUnsafe('RELEASE SAVEPOINT import_row');
       } catch {
+        await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT import_row');
         await tx.import_rows.update({
           where: { id: row.id },
           data: { status: 'error', error_count: (row.error_count || 0) + 1 },
@@ -145,7 +205,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     await tx.import_jobs.update({
       where: { id },
       data: {
-        status: finalStatus as any,
+        status: finalStatus,
         completed_at: new Date(),
         statistics: { committed: committedCount, skipped: skippedCount, total: rows.length },
       },

@@ -118,6 +118,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
           posted_by: userId,
           notes: `Automatically posted from accepted GRN ${receipt.receipt_number}`,
         })),
+        skipDuplicates: true,
       });
     }
   }

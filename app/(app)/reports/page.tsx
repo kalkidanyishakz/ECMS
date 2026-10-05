@@ -11,11 +11,13 @@ import { money, num, date } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
+  const { q: rawQuery } = await searchParams;
+  const q = (rawQuery ?? '').trim().toLowerCase();
 
-  const [commercial, moneyStreams, exceptions, labor] = await Promise.all([
+  let [commercial, moneyStreams, exceptions, labor] = await Promise.all([
     db.$queryRaw<Array<{ contract_id: string; contract_number: string; currency: string; original_contract_amount: number; approved_variations: number; revised_contract_amount: number; certified_net: number; retention_held: number; paid_net: number; uncertified_balance: number }>>`
       SELECT contract_id, contract_number, currency, original_contract_amount, approved_variations, revised_contract_amount, certified_net, retention_held, paid_net, uncertified_balance
       FROM ecms.v_contract_commercial_position WHERE project_id = ${projectId ?? ''} ORDER BY contract_number ASC`,
@@ -30,11 +32,36 @@ export default async function ReportsPage() {
       FROM ecms.v_labor_cost_by_package WHERE project_id = ${projectId ?? ''} GROUP BY package_code, cost_code ORDER BY approved_gross_amount DESC`,
   ]);
 
+  if (q) {
+    const matches = (values: unknown[]) =>
+      values.some((value) => value != null && String(value).toLowerCase().includes(q));
+    commercial = commercial.filter((row) => matches([row.contract_number, row.currency]));
+    moneyStreams = moneyStreams.filter((row) =>
+      matches([row.period_month, row.employer_to_contractor_certified, row.contractor_to_supplier_paid, row.contractor_to_worker_paid]),
+    );
+    exceptions = exceptions.filter((row) => matches([row.source_type, row.category, row.severity, row.status, row.title]));
+    labor = labor.filter((row) => matches([row.package_code, row.cost_code]));
+  }
+
+  const resultCount = commercial.length + moneyStreams.length + exceptions.length + labor.length;
+
   return (
     <div className="flex flex-col gap-5">
       <SectionHeader title="Report Centre" />
+      {q && (
+        <div className="flex items-center justify-between rounded-lg border border-ecms-border bg-ecms-card px-4 py-3 text-sm">
+          <span className="text-ecms-muted">
+            Search results for <span className="font-semibold text-ecms-text">&ldquo;{rawQuery}&rdquo;</span>
+          </span>
+          <span className="text-ecms-muted">{resultCount} match{resultCount === 1 ? '' : 'es'}</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title="Contract Commercial Position" icon={<IconReport size={18} />}>
+        <Card
+          title="Contract Commercial Position"
+          icon={<IconReport size={18} />}
+          actions={<a href="/api/v1/reports/commercial/export" className="rounded-lg border border-ecms-border bg-ecms-elevated px-3 py-1.5 text-xs font-medium text-ecms-text hover:border-ecms-amber">Export CSV</a>}
+        >
           {commercial.length === 0 ? (
             <EmptyState title="No data" message="Contract commercial position report is empty." />
           ) : (
@@ -58,7 +85,11 @@ export default async function ReportsPage() {
           )}
         </Card>
 
-        <Card title="Three Money Streams" subtitle="Monthly certified, supplier-paid and worker-paid amounts">
+        <Card
+          title="Three Money Streams"
+          subtitle="Monthly certified, supplier-paid and worker-paid amounts"
+          actions={<a href="/api/v1/reports/money-streams/export" className="rounded-lg border border-ecms-border bg-ecms-elevated px-3 py-1.5 text-xs font-medium text-ecms-text hover:border-ecms-amber">Export CSV</a>}
+        >
           {moneyStreams.length === 0 ? (
             <EmptyState title="No cash flow" message="Certified, supplier and worker payment streams will appear here." />
           ) : (
@@ -78,7 +109,11 @@ export default async function ReportsPage() {
           )}
         </Card>
 
-        <Card title="Open Exceptions" subtitle="Open issues and import exceptions">
+        <Card
+          title="Open Exceptions"
+          subtitle="Open issues and import exceptions"
+          actions={<a href="/api/v1/reports/exceptions/export" className="rounded-lg border border-ecms-border bg-ecms-elevated px-3 py-1.5 text-xs font-medium text-ecms-text hover:border-ecms-amber">Export CSV</a>}
+        >
           {exceptions.length === 0 ? (
             <EmptyState title="No open exceptions" message="All issues and import exceptions are resolved." />
           ) : (
@@ -100,7 +135,11 @@ export default async function ReportsPage() {
           )}
         </Card>
 
-        <Card title="Labor Cost by Package" subtitle="Approved gross cost grouped by package and cost code">
+        <Card
+          title="Labor Cost by Package"
+          subtitle="Approved gross cost grouped by package and cost code"
+          actions={<a href="/api/v1/reports/labor/export" className="rounded-lg border border-ecms-border bg-ecms-elevated px-3 py-1.5 text-xs font-medium text-ecms-text hover:border-ecms-amber">Export CSV</a>}
+        >
           {labor.length === 0 ? (
             <EmptyState title="No labor cost" message="Approved labor cost appears once timesheets are approved." />
           ) : (

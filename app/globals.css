@@ -16,6 +16,21 @@
   --color-ecms-text: #F0F4F8;
   --color-ecms-border: rgba(255, 255, 255, 0.07);
   --color-ecms-border-strong: rgba(255, 255, 255, 0.14);
+
+  --color-marble: #162537;
+  --color-ink: #F0F4F8;
+  --color-mint: #2ECC71;
+  --color-mint-tint: rgba(46, 204, 113, 0.14);
+  --color-canvas: #0a1624;
+  --color-steel: #8BA3BE;
+  --color-ash: #64748B;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-moss: #23A55A;
+  --color-clay: #E24B4A;
+  --color-clay-tint: rgba(226, 75, 74, 0.14);
+
+  --radius-pill: 9999px;
+  --radius-panels: 1rem;
 }
 
 :root {
@@ -59,4 +74,19 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ecms-muted); 
+}
+
+@keyframes ecms-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in.fade-in {
+  animation: ecms-toast-in 0.3s ease-out both;
 }

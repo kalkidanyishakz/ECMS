@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { StatusPill } from '@/components/ui/StatusPill';
@@ -28,6 +29,29 @@ export default async function DocumentsPage() {
   return (
     <div className="flex flex-col gap-5">
       <SectionHeader title="Document Control" />
+
+      <Card title="Register a Document" icon={<IconFiles size={18} />}>
+        <form method="POST" action="/api/v1/documents" encType="multipart/form-data" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <input type="hidden" name="redirect_to" value="/documents" />
+          <input name="document_number" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Document number (e.g. DWG-001)" required />
+          <input name="title" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Title" required />
+          <select name="document_type" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" defaultValue="drawing">
+            <option value="drawing">Drawing</option>
+            <option value="specification">Specification</option>
+            <option value="report">Report</option>
+            <option value="correspondence">Correspondence</option>
+            <option value="other">Other</option>
+          </select>
+          <input name="revision_number" defaultValue="A" className="rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text" placeholder="Revision (e.g. A)" />
+          <input name="file" type="file" className="text-sm text-ecms-muted file:mr-3 file:rounded-lg file:border-0 file:bg-ecms-elevated file:px-3 file:py-1.5 file:text-ecms-text sm:col-span-2 lg:col-span-3" />
+          <div className="flex items-end">
+            <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-ecms-amber px-3 py-1.5 text-sm font-semibold text-ecms-navy hover:bg-ecms-amber/90">
+              Create Document
+            </button>
+          </div>
+        </form>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-ecms-border bg-ecms-card p-5"><p className="text-sm text-ecms-muted">Documents</p><p className="mt-1 text-2xl font-bold text-ecms-text">{register.length}</p></div>
         <div className="rounded-xl border border-ecms-border bg-ecms-card p-5"><p className="text-sm text-ecms-muted">Revisions</p><p className="mt-1 text-2xl font-bold text-ecms-amber">{revisions}</p></div>
@@ -50,7 +74,7 @@ export default async function DocumentsPage() {
             <TBody>
               {register.map((d) => (
                 <TR key={d.document_id} className="hover:bg-ecms-elevated/40">
-                  <TD className="font-medium whitespace-nowrap">{d.document_number}</TD>
+                  <TD className="font-medium whitespace-nowrap"><Link href={`/documents/${d.document_id}`} className="hover:text-ecms-amber">{d.document_number}</Link></TD>
                   <TD className="max-w-[260px] truncate">{d.title}</TD>
                   <TD className="text-ecms-muted">{d.category}</TD>
                   <TD className="text-ecms-muted">{d.discipline ?? '—'}</TD>

@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+.omo
+coverage
+*.log
+.env
+.env.*
+!.env.example
+Dockerfile
+docker-compose.yml
+.dockerignore
+tsconfig.tsbuildinfo
+*.tsbuildinfo

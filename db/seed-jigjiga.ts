@@ -53,12 +53,6 @@ function parseCsvRows(filePath: string): Record<string, string>[] {
   });
 }
 
-function upsertUuid(): string {
-  // Generate a deterministic UUID for items that need a stable id across runs
-  // We'll use Prisma's gen_random_uuid() by omitting id and letting DB default
-  return undefined as unknown as string;
-}
-
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -329,6 +323,59 @@ async function main() {
     });
     console.log(`  Contract amounts updated: ${grandTotal.toLocaleString()} ETB`);
   }
+
+  // ── 7b. Cost codes (one per BOQ section, budget = section total) ─────────
+  const sectionBudgetRows = await db.boq_items.findMany({
+    where: { boq_version_id: boqVersion.id, section_id: { not: null } },
+    select: { section_id: true, approved_amount: true },
+  });
+  const budgetBySection = new Map<string, number>();
+  for (const row of sectionBudgetRows) {
+    if (!row.section_id) continue;
+    budgetBySection.set(
+      row.section_id,
+      (budgetBySection.get(row.section_id) ?? 0) + Number(row.approved_amount)
+    );
+  }
+
+  const costCodeSections = await db.boq_sections.findMany({
+    where: { boq_version_id: boqVersion.id },
+    orderBy: { sort_order: 'asc' },
+  });
+
+  const costCodeCategory: Record<string, string> = {
+    'SEC-1': 'plant',
+    'SEC-2': 'subcontract',
+    'SEC-3': 'material',
+    'SEC-4': 'subcontract',
+    'SEC-5': 'material',
+    'SEC-6': 'other',
+  };
+
+  let costCodeCount = 0;
+  for (const section of costCodeSections) {
+    const existing = await db.cost_codes.findUnique({
+      where: { project_id_cost_code: { project_id: project.id, cost_code: section.section_code } },
+    });
+    if (!existing) {
+      await db.cost_codes.create({
+        data: {
+          project_id: project.id,
+          cost_code: section.section_code,
+          name: section.title,
+          category: costCodeCategory[section.section_code] ?? 'General',
+          budget_amount: budgetBySection.get(section.id) ?? 0,
+        },
+      });
+      costCodeCount++;
+    } else if (Number(existing.budget_amount) === 0) {
+      await db.cost_codes.update({
+        where: { id: existing.id },
+        data: { budget_amount: budgetBySection.get(section.id) ?? 0 },
+      });
+    }
+  }
+  console.log(`  Cost codes: ${costCodeCount} created (${costCodeSections.length} sections)`);
 
   // ── 8. Work packages ─────────────────────────────────────────────────────
   const wpDefs = [

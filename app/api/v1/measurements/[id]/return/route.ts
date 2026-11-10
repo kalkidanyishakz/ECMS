@@ -47,7 +47,7 @@ export const POST = withErrorHandling(async function POST(
     );
   }
 
-  const updated = await db.measurements.update({
+  await db.measurements.update({
     where: { id },
     data: {
       status: target_status as 'returned' | 'draft',

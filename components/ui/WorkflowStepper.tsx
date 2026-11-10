@@ -12,8 +12,6 @@ type Props = {
 };
 
 export function WorkflowStepper({ steps, current, completedSteps = [] }: Props) {
-  const currentIdx = steps.findIndex((s) => s.key === current);
-
   return (
     <div className="flex items-center gap-1 w-full">
       {steps.map((step, i) => {

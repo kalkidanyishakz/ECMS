@@ -1,5 +1,6 @@
 import { db as defaultDb } from '@/lib/db';
 import { checkToolPermissions } from './utils';
+import type { ToolDb } from './db';
 
 export const schema = {
   name: 'get_workforce_status',
@@ -18,7 +19,7 @@ export async function run(
   projectId: string,
   userId: string,
   args: { projectId?: string } = {},
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ) {
   const targetProjectId = projectId || args.projectId;
   if (!targetProjectId) {
@@ -39,7 +40,7 @@ export async function run(
   });
 
   const rosterTotalCount = workers.length;
-  const activeWorkerCount = workers.filter((w: any) => w.status === 'active' || w.status === 'approved').length;
+  const activeWorkerCount = workers.filter((w) => w.status === 'active' || w.status === 'approved').length;
 
   // Latest Timesheet
   const latestTimesheet = await dbClient.timesheets.findFirst({

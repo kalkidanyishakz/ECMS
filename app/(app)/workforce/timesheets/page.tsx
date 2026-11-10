@@ -7,12 +7,12 @@ import { IconPlus, IconClockHour4 } from '@tabler/icons-react';
 import { db } from '@/lib/db';
 import { requireAppUser } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
-import { money, date } from '@/lib/format';
+import { date } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TimesheetsPage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
   const [timesheets, workers] = await Promise.all([

@@ -26,7 +26,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const issue_purpose = (form.get('issue_purpose') as string)?.trim() || null;
 
   const now = new Date();
-  const updated = await db.document_revisions.update({
+  await db.document_revisions.update({
     where: { id },
     data: {
       status: 'accepted',

@@ -1,5 +1,6 @@
 import { db as defaultDb } from '@/lib/db';
 import { checkToolPermissions } from './utils';
+import type { ToolDb } from './db';
 
 export const schema = {
   name: 'get_ipc_status',
@@ -18,7 +19,7 @@ export async function run(
   projectId: string,
   userId: string,
   args: { projectId?: string } = {},
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ) {
   const targetProjectId = projectId || args.projectId;
   if (!targetProjectId) {
@@ -43,7 +44,7 @@ export async function run(
     },
   });
 
-  const ipcsList = ipcs.map((ipc: any) => ({
+  const ipcsList = ipcs.map((ipc) => ({
     id: ipc.id,
     ipcNumber: ipc.ipc_number,
     certificateReference: ipc.certificate_reference,
@@ -60,7 +61,7 @@ export async function run(
   }));
 
   // Identify in-progress IPC (draft, submitted, under_review, recommended)
-  const inProgressIpcRaw = ipcs.find((ipc: any) =>
+  const inProgressIpcRaw = ipcs.find((ipc) =>
     ['draft', 'submitted', 'under_review', 'recommended'].includes(ipc.status)
   );
 

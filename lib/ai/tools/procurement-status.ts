@@ -1,5 +1,6 @@
 import { db as defaultDb } from '@/lib/db';
 import { checkToolPermissions } from './utils';
+import type { ToolDb } from './db';
 
 export const schema = {
   name: 'get_procurement_status',
@@ -19,7 +20,7 @@ export async function run(
   projectId: string,
   userId: string,
   args: { projectId?: string; topN?: number } = {},
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ) {
   const targetProjectId = projectId || args.projectId;
   const topN = args.topN || 5;
@@ -49,9 +50,9 @@ export async function run(
   }
 
   const openRequisitions = requisitions
-    .filter((pr: any) => !['cancelled', 'rejected', 'fulfilled'].includes(pr.status))
+    .filter((pr) => !['cancelled', 'rejected', 'fulfilled'].includes(pr.status))
     .slice(0, 10)
-    .map((pr: any) => ({
+    .map((pr) => ({
       id: pr.id,
       requisitionNumber: pr.requisition_number,
       status: pr.status,
@@ -71,9 +72,9 @@ export async function run(
   }
 
   const openPurchaseOrders = purchaseOrders
-    .filter((po: any) => !['cancelled', 'closed', 'fully_received'].includes(po.status))
+    .filter((po) => !['cancelled', 'closed', 'fully_received'].includes(po.status))
     .slice(0, 10)
-    .map((po: any) => ({
+    .map((po) => ({
       id: po.id,
       poNumber: po.po_number,
       status: po.status,

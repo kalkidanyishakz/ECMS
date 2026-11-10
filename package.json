@@ -9,8 +9,11 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "psql -h localhost -U postgres -d ecms -f db/migrations/0001_ecms_mvp_schema.sql -f db/migrations/0002_better_auth.sql -f db/migrations/0003_ecms_ipc_paid_by.sql -f db/migrations/0004_triggers_rls_seeds.sql",
-    "db:seed:jigjiga": "npx tsx db/seed-jigjiga.ts"
+    "db:migrate": "psql -h localhost -U postgres -d ecms -f db/migrations/0001_ecms_mvp_schema.sql -f db/migrations/0002_better_auth.sql -f db/migrations/0003_ecms_ipc_paid_by.sql -f db/migrations/0004_triggers_rls_seeds.sql -f db/migrations/0005_ai_chat_permission.sql -f db/migrations/0006_worker_idempotency.sql",
+    "db:seed:jigjiga": "npx tsx db/seed-jigjiga.ts",
+    "ocr:backfill": "tsx scripts/ocr-backfill.ts",
+    "worker": "tsx scripts/worker.ts",
+    "findings:scan": "tsx scripts/findings-scan.ts"
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "^1.6.27",

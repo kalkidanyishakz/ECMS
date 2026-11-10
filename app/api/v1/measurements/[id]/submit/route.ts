@@ -35,7 +35,7 @@ export const POST = withErrorHandling(async function POST(
   }
 
   const now = new Date();
-  const updated = await db.measurements.update({
+  await db.measurements.update({
     where: { id },
     data: {
       status: 'submitted',

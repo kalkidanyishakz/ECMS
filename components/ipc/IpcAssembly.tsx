@@ -7,7 +7,7 @@ import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { IconCalculator, IconPlus, IconCash, IconTruckDelivery } from '@tabler/icons-react';
-import { num, money } from '@/lib/format';
+import { num } from '@/lib/format';
 
 const inputCls = 'rounded-lg border border-ecms-border bg-ecms-bg px-3 py-1.5 text-sm text-ecms-text';
 const labelCls = 'text-xs font-medium text-ecms-muted';

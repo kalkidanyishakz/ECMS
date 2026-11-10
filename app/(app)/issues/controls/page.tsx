@@ -3,7 +3,8 @@ import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, type BadgeTone } from '@/components/ui/Badge';
+import { RunFindingsScanButton } from '@/components/controls/RunFindingsScanButton';
 import { IconShieldCheck, IconRobot } from '@tabler/icons-react';
 import { db } from '@/lib/db';
 import { requireAppUser } from '@/lib/server/session';
@@ -11,6 +12,25 @@ import { getProjectContext } from '@/lib/server/context';
 import { dateTime } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
+
+function severityTone(severity: string): BadgeTone {
+  if (severity === 'critical') return 'danger';
+  if (severity === 'high') return 'warning';
+  if (severity === 'medium') return 'info';
+  return 'neutral';
+}
+
+function evidenceSummary(evidence: unknown): string {
+  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return '';
+  const entries = Object.entries(evidence as Record<string, unknown>)
+    .filter(
+      ([key, value]) =>
+        key !== 'input' &&
+        (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+    )
+    .slice(0, 3);
+  return entries.map(([key, value]) => `${key}: ${String(value)}`).join(' · ');
+}
 
 export default async function ControlsPage() {
   await requireAppUser();
@@ -35,7 +55,7 @@ export default async function ControlsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionHeader title="Control Console" />
+      <SectionHeader title="Control Console" actions={<RunFindingsScanButton />} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-ecms-border bg-ecms-card p-5"><p className="text-sm text-ecms-muted">Active Controls</p><p className="mt-1 text-2xl font-bold text-ecms-text">{rules.filter((r) => r.is_active).length}</p></div>
         <div className="rounded-xl border border-ecms-border bg-ecms-card p-5"><p className="text-sm text-ecms-muted">Evaluations</p><p className="mt-1 text-2xl font-bold text-ecms-amber">{evaluations.length}</p></div>
@@ -91,18 +111,25 @@ export default async function ControlsPage() {
           <EmptyState title="No AI findings" message="Automated findings from document analysis and control reviews appear here." />
         ) : (
           <Table>
-            <THead><TH>Type</TH><TH>Title</TH><TH>Severity</TH><TH>Status</TH><TH>Model</TH><TH>Created</TH></THead>
+            <THead><TH>Type</TH><TH>Finding</TH><TH>Evidence</TH><TH>Severity</TH><TH>Status</TH><TH>Model</TH><TH>Created</TH></THead>
             <TBody>
-              {findings.map((f) => (
-                <TR key={f.id} className="hover:bg-ecms-elevated/40">
-                  <TD className="text-ecms-muted">{f.finding_type}</TD>
-                  <TD className="max-w-[280px] truncate">{f.title}</TD>
-                  <TD><Badge tone={f.severity === 'critical' ? 'danger' : f.severity === 'high' ? 'warning' : 'neutral'}>{f.severity}</Badge></TD>
-                  <TD><StatusPill status={f.status} /></TD>
-                  <TD className="text-ecms-muted">{f.model_name}</TD>
-                  <TD>{dateTime(f.created_at)}</TD>
-                </TR>
-              ))}
+              {findings.map((f) => {
+                const summary = evidenceSummary(f.evidence);
+                return (
+                  <TR key={f.id} className="hover:bg-ecms-elevated/40 align-top">
+                    <TD className="text-ecms-muted whitespace-nowrap">{f.finding_type}</TD>
+                    <TD className="max-w-[320px]">
+                      <p className="font-medium text-ecms-text">{f.title}</p>
+                      <p className="mt-0.5 whitespace-normal text-xs text-ecms-muted">{f.explanation}</p>
+                    </TD>
+                    <TD className="max-w-[220px] whitespace-normal text-xs text-ecms-muted">{summary || '—'}</TD>
+                    <TD><Badge tone={severityTone(f.severity)}>{f.severity}</Badge></TD>
+                    <TD><StatusPill status={f.status} /></TD>
+                    <TD className="text-ecms-muted">{f.model_name}</TD>
+                    <TD className="whitespace-nowrap">{dateTime(f.created_at)}</TD>
+                  </TR>
+                );
+              })}
             </TBody>
           </Table>
         )}

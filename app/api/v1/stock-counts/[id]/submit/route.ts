@@ -27,7 +27,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     return NextResponse.json({ error: 'Stock count must have at least one count line' }, { status: 409 });
   }
 
-  const updated = await db.stock_counts.update({
+  await db.stock_counts.update({
     where: { id },
     data: {
       status: 'submitted',

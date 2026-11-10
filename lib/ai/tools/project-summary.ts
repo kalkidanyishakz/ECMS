@@ -1,6 +1,7 @@
 import { db as defaultDb } from '@/lib/db';
 import { checkToolPermissions } from './utils';
 import { round2 } from '@/lib/calculations/ipc';
+import type { ToolDb } from './db';
 
 export const schema = {
   name: 'get_project_summary',
@@ -19,7 +20,7 @@ export async function run(
   projectId: string,
   userId: string,
   args: { projectId?: string } = {},
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ) {
   const targetProjectId = projectId || args.projectId;
   if (!targetProjectId) {

@@ -17,7 +17,7 @@ const severityTone: Record<string, 'info' | 'neutral' | 'warning' | 'danger'> = 
 };
 
 export default async function IssuesPage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
   const issues = await db.issues.findMany({

@@ -9,12 +9,12 @@ import { IconBuilding, IconPlus } from '@tabler/icons-react';
 import { db } from '@/lib/db';
 import { requireAppUser } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
-import { money, date, num } from '@/lib/format';
+import { money, date } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProjectsPage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId } = await getProjectContext();
 
   const [projects, contracts] = await Promise.all([

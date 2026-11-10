@@ -1,6 +1,7 @@
 import { db as defaultDb } from '@/lib/db';
 import { checkToolPermissions } from './utils';
 import { round2 } from '@/lib/calculations/ipc';
+import type { ToolDb } from './db';
 
 export const schema = {
   name: 'get_boq_status',
@@ -20,7 +21,7 @@ export async function run(
   projectId: string,
   userId: string,
   args: { projectId?: string; sectionId?: string } = {},
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ) {
   const targetProjectId = projectId || args.projectId;
   if (!targetProjectId) {
@@ -73,7 +74,7 @@ export async function run(
     };
   }
 
-  const whereClause: any = { boq_version_id: boqVersion.id };
+  const whereClause: { boq_version_id: string; section_id?: string } = { boq_version_id: boqVersion.id };
   if (args.sectionId) {
     whereClause.section_id = args.sectionId;
   }
@@ -105,7 +106,7 @@ export async function run(
   let over90PercentCount = 0;
   let overrunCount = 0;
 
-  const items = boqItems.map((item: any) => {
+  const items = boqItems.map((item) => {
     const originalQuantity = Number(item.original_quantity || 0);
     const approvedQuantity = Number(item.approved_quantity ?? originalQuantity);
     const cumulativeCertifiedQuantity = certifiedQtyMap.get(item.id) || 0;

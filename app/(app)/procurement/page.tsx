@@ -12,7 +12,7 @@ import { date } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function SuppliersPage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId } = await getProjectContext();
 
   const suppliers = await db.suppliers.findMany({

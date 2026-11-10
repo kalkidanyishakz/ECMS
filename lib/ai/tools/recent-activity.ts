@@ -1,5 +1,6 @@
 import { db as defaultDb } from '@/lib/db';
 import { checkToolPermissions } from './utils';
+import type { AuditEventRow, ToolDb } from './db';
 
 export const schema = {
   name: 'get_recent_activity',
@@ -51,7 +52,7 @@ function formatEntityTypeName(type: string): string {
   return map[type.toLowerCase()] || type.replace(/_/g, ' ');
 }
 
-function formatAuditSummary(event: any): string {
+function formatAuditSummary(event: AuditEventRow): string {
   const actor = event.app_users?.display_name || event.app_users?.email || 'A user';
   const entityType = formatEntityTypeName(event.entity_type);
   const action = (event.action || '').toUpperCase();
@@ -102,7 +103,7 @@ export async function run(
   projectId: string,
   userId: string,
   args: { projectId?: string; limit?: number } = {},
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ) {
   const targetProjectId = projectId || args.projectId;
   const limit = args.limit || 10;
@@ -131,7 +132,7 @@ export async function run(
     },
   });
 
-  const formattedEvents = events.map((evt: any) => ({
+  const formattedEvents = events.map((evt) => ({
     timestamp: evt.occurred_at ? new Date(evt.occurred_at).toISOString() : new Date().toISOString(),
     summary: formatAuditSummary(evt),
   }));

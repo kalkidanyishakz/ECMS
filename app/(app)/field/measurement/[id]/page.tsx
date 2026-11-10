@@ -11,6 +11,8 @@ import { getAppUser, hasAnyPermission, requireAppUser } from '@/lib/server/sessi
 import { getProjectContext } from '@/lib/server/context';
 import { MeasurementEntry, type BoqOption, type MeasurementLineOption } from '@/components/measurement/MeasurementEntry';
 import { MeasurementVerify, type VerifyLine } from '@/components/measurement/MeasurementVerify';
+import { MeasurementAttachments, type AttachmentLineOption } from '@/components/measurement/MeasurementAttachments';
+import { toAttachmentOption } from '@/lib/attachments';
 import { date, num } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +34,7 @@ const transitions: Record<string, string[]> = {
 export default async function MeasurementDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireAppUser();
-  const { projectId } = await getProjectContext();
+  await getProjectContext();
 
   const measurement = await db.measurements.findUnique({
     where: { id },
@@ -85,6 +87,24 @@ export default async function MeasurementDetailPage({ params }: { params: Promis
     description: l.description ?? l.boq_items.description,
     unit: l.unit,
     submittedQuantity: Number(l.submitted_quantity),
+  }));
+
+  const attachmentRows = await db.record_attachments.findMany({
+    where: {
+      project_id: measurement.project_id,
+      OR: [
+        { record_type: 'measurement', record_id: measurement.id },
+        { record_type: 'measurement_line', record_id: { in: measurement.measurement_lines.map((l) => l.id) } },
+      ],
+    },
+    include: { stored_files: { select: { original_name: true, mime_type: true, size_bytes: true } } },
+    orderBy: { created_at: 'desc' },
+  });
+  const attachments = attachmentRows.map(toAttachmentOption);
+  const attachmentLines: AttachmentLineOption[] = measurement.measurement_lines.map((l) => ({
+    id: l.id,
+    lineNumber: l.line_number,
+    description: l.description ?? l.boq_items.description,
   }));
 
   const nextStatuses = transitions[measurement.status] ?? [];
@@ -224,6 +244,14 @@ export default async function MeasurementDetailPage({ params }: { params: Promis
           </Table>
         )}
       </Card>
+
+      <MeasurementAttachments
+        measurementId={measurement.id}
+        attachments={attachments}
+        canUpload={canCreate}
+        canDelete={canCreate || canVerify}
+        lines={attachmentLines}
+      />
 
       {measurement.measurement_lines.some((l) => l.measurement_segments.length > 0) && (
         <Card title="Chainage Segments" subtitle="Location-based segments for measurement lines">

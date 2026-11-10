@@ -9,5 +9,6 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    exclude: ['**/node_modules/**', '**/.next/**', '**/dist/**'],
   },
 });

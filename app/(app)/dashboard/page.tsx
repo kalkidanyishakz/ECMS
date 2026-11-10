@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   const tenant = await db.tenants.findUnique({ where: { id: tenantId } });
   const currency = tenant?.default_currency ?? 'ETB';
 
-  const [projects, contracts, ipcs, notifications, issues, stock, costCodes] = await Promise.all([
+  const [projects, contracts, ipcs, notifications, issues, stock] = await Promise.all([
     db.projects.findMany({ orderBy: { created_at: 'asc' } }),
     db.contracts.findMany({ where: { project_id: projectId ?? undefined }, orderBy: { contract_number: 'asc' } }),
     db.ipc_certificates.findMany({
@@ -44,13 +44,11 @@ export default async function DashboardPage() {
       JOIN ecms.inventory_items ii ON ii.item_code = s.item_code
       WHERE s.project_id = ${projectId ?? ''} AND s.quantity_on_hand < ii.minimum_stock
       ORDER BY (ii.minimum_stock - s.quantity_on_hand) DESC LIMIT 6`,
-    db.cost_codes.groupBy({ by: ['project_id'], where: { project_id: projectId ?? undefined }, _sum: { budget_amount: true } }),
   ]);
 
   const totalContractValue = contracts.reduce((s, c) => s + Number(c.revised_contract_amount), 0);
   const certifiedToDate = ipcs.reduce((s, i) => s + Number(i.net_current_amount), 0);
   const paidToDate = await db.payments.aggregate({ where: { ipc_certificates: { project_id: projectId ?? undefined } }, _sum: { net_paid_amount: true } });
-  const budgetConsumed = costCodes.reduce((s, c) => s + Number(c._sum.budget_amount ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-5">

@@ -51,7 +51,7 @@ export const POST = withErrorHandling(async function POST(
     verified_at: now,
   };
 
-  const updated = await db.measurements.update({ where: { id }, data: updateData });
+  await db.measurements.update({ where: { id }, data: updateData });
 
   if (accepted_quantities) {
     try {

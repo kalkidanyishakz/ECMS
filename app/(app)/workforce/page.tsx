@@ -12,7 +12,7 @@ import { money, date } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function WorkforcePage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
   const [workers, orgs, attendanceToday] = await Promise.all([

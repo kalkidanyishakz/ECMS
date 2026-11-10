@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
-import { StatusPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -16,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function BoqContractPage({ params }: { params: Promise<{ contractId: string }> }) {
   const { contractId } = await params;
   await requireAppUser();
-  const { tenantId, projectId } = await getProjectContext();
+  const { projectId } = await getProjectContext();
 
   const contract = await db.contracts.findUnique({ where: { id: contractId } });
   if (!contract) notFound();
@@ -69,7 +68,6 @@ export default async function BoqContractPage({ params }: { params: Promise<{ co
 
   const progressMap = new Map(progressRows.map((r) => [r.boq_item_id, r]));
   const totalApproved = allItems.reduce((s, i) => s + Number(i.approved_amount), 0);
-  const totalMeasured = progressRows.reduce((s, r) => s + Number(r.measured_quantity), 0);
   const totalCertified = progressRows.reduce((s, r) => s + Number(r.certified_quantity), 0);
 
   return (

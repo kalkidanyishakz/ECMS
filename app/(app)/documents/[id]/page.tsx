@@ -4,10 +4,13 @@ import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { IconFiles } from '@tabler/icons-react';
+import { DocumentPages } from '@/components/documents/DocumentPages';
+import { IconFiles, IconLink } from '@tabler/icons-react';
 import { db } from '@/lib/db';
 import { requireAppUser } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
+import { listDocumentPages } from '@/lib/documents/pages';
+import { listDocumentBackreferences } from '@/lib/documents/links';
 import { date } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireAppUser();
-  const { projectId } = await getProjectContext();
+  await getProjectContext();
 
   const document = await db.documents.findUnique({
     where: { id },
@@ -33,6 +36,11 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
       app_users: { select: { display_name: true } },
     },
   });
+
+  const pageRows = await listDocumentPages(db, id);
+  const backreferences = (
+    await Promise.all(revisions.map((revision) => listDocumentBackreferences(revision.id)))
+  ).flat();
 
   return (
     <div className="flex flex-col gap-5">
@@ -119,6 +127,38 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                       </form>
                     )}
                   </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </Card>
+
+      <DocumentPages documentId={document.id} initialPages={pageRows} />
+
+      <Card
+        title="Referenced by"
+        subtitle="Records that cite this document's revisions"
+        icon={<IconLink size={18} />}
+      >
+        {backreferences.length === 0 ? (
+          <EmptyState
+            title="No references"
+            message="Measurement lines, RFIs, contract clauses, and transmittals that cite this document appear here."
+          />
+        ) : (
+          <Table>
+            <THead>
+              <TH>Type</TH>
+              <TH>Reference</TH>
+              <TH className="text-right">Page</TH>
+            </THead>
+            <TBody>
+              {backreferences.map((ref) => (
+                <TR key={`${ref.entityType}-${ref.entityId}-${ref.page ?? 'none'}`} className="hover:bg-ecms-elevated/40">
+                  <TD className="text-ecms-muted">{ref.entityType}</TD>
+                  <TD className="font-medium">{ref.identifier}</TD>
+                  <TD className="text-right text-ecms-muted">{ref.page ?? '—'}</TD>
                 </TR>
               ))}
             </TBody>

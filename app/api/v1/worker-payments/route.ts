@@ -7,7 +7,7 @@ import { withErrorHandling } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withErrorHandling(async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET() {
   const { projectId } = await getProjectContext();
   if (!projectId) return NextResponse.json({ error: 'No project selected' }, { status: 400 });
 

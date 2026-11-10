@@ -1,8 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { processChatRequest, POST } from '@/app/api/v1/ai/chat/route';
+import {
+  processChatRequest,
+  POST,
+  type ChatCompletionParams,
+  type ChatStreamChunk,
+} from '@/app/api/v1/ai/chat/route';
 import * as auditModule from '@/lib/audit';
 import * as sessionModule from '@/lib/server/session';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import type { ToolDb } from '@/lib/ai/tools/db';
+
+type WriteAuditResult = Awaited<ReturnType<typeof auditModule.writeAudit>>;
 
 // ---------------------------------------------------------------------------
 // Test Constants & Mock Generators
@@ -11,7 +19,7 @@ import { NextResponse } from 'next/server';
 const PROJECT_ID = '00000000-0000-0000-0000-000000000001';
 const PM_USER_ID = '11111111-1111-1111-1111-111111111111';
 
-async function* createMockAsyncStream(chunks: any[]) {
+async function* createMockAsyncStream(chunks: ChatStreamChunk[]) {
   for (const chunk of chunks) {
     yield chunk;
   }
@@ -20,7 +28,7 @@ async function* createMockAsyncStream(chunks: any[]) {
 function createMockDb() {
   return {
     projects: {
-      findUnique: async ({ where }: any) => {
+      findUnique: async ({ where }: { where: { id: string } }) => {
         if (where.id === PROJECT_ID) {
           return {
             id: PROJECT_ID,
@@ -33,7 +41,7 @@ function createMockDb() {
       },
     },
     tenant_member_roles: {
-      findMany: async ({ where }: any) => {
+      findMany: async ({ where }: { where: { user_id: string } }) => {
         if (where.user_id === PM_USER_ID) {
           return [{ role_id: 'role-pm', roles: { role_key: 'employer_pm' } }];
         }
@@ -43,7 +51,7 @@ function createMockDb() {
     role_permissions: { findMany: async () => [] },
     permissions: { findMany: async () => [] },
     project_members: {
-      findUnique: async ({ where }: any) => {
+      findUnique: async ({ where }: { where: { project_id_user_id: { user_id: string } } }) => {
         if (where.project_id_user_id.user_id === PM_USER_ID) {
           return { id: 'pm-member-id' };
         }
@@ -51,7 +59,7 @@ function createMockDb() {
       },
     },
     project_member_roles: {
-      findMany: async ({ where }: any) => {
+      findMany: async ({ where }: { where: { project_member_id: string } }) => {
         if (where.project_member_id === 'pm-member-id') {
           return [
             {
@@ -79,10 +87,10 @@ function createMockDb() {
 }
 
 describe('AI Chat Route & NDJSON Real Streaming Protocol', () => {
-  let mockDb: ReturnType<typeof createMockDb>;
+  let mockDb: ToolDb;
 
   beforeEach(() => {
-    mockDb = createMockDb();
+    mockDb = createMockDb() as unknown as ToolDb;
     vi.restoreAllMocks();
   });
 
@@ -96,7 +104,7 @@ describe('AI Chat Route & NDJSON Real Streaming Protocol', () => {
       body: JSON.stringify({ projectId: PROJECT_ID, messages: [{ role: 'user', content: 'Hi' }] }),
     });
 
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toBe('Forbidden');
@@ -104,7 +112,7 @@ describe('AI Chat Route & NDJSON Real Streaming Protocol', () => {
   });
 
   it('2. Real NDJSON Streaming Verification: discrete content deltas arrive incrementally as NDJSON events', async () => {
-    const writeAuditSpy = vi.spyOn(auditModule, 'writeAudit').mockResolvedValue({} as any);
+    const writeAuditSpy = vi.spyOn(auditModule, 'writeAudit').mockResolvedValue({} as WriteAuditResult);
 
     const mockDeepSeekClient = {
       chat: {
@@ -164,13 +172,13 @@ describe('AI Chat Route & NDJSON Real Streaming Protocol', () => {
   });
 
   it('3. Multi-round Tool Execution & NDJSON tool_call event: tool_call event emitted before execution and only final answer streams', async () => {
-    const writeAuditSpy = vi.spyOn(auditModule, 'writeAudit').mockResolvedValue({} as any);
+    const writeAuditSpy = vi.spyOn(auditModule, 'writeAudit').mockResolvedValue({} as WriteAuditResult);
 
-    const deepseekCalls: any[] = [];
+    const deepseekCalls: ChatCompletionParams[] = [];
     const mockDeepSeekClient = {
       chat: {
         completions: {
-          create: vi.fn(async (params: any) => {
+          create: vi.fn(async (params: ChatCompletionParams) => {
             deepseekCalls.push(params);
 
             // Round 1: Streaming tool_calls fragments across multiple chunks
@@ -245,8 +253,9 @@ describe('AI Chat Route & NDJSON Real Streaming Protocol', () => {
 
     // Confirm tool result role: tool was appended with parsed arguments in Round 2 history
     const round2Messages = deepseekCalls[1].messages;
-    const toolMsg = round2Messages.find((m: any) => m.role === 'tool');
+    const toolMsg = round2Messages.find((m) => m.role === 'tool');
     expect(toolMsg).toBeDefined();
+    if (!toolMsg) throw new Error('expected tool message in round 2 history');
     expect(toolMsg.tool_call_id).toBe('call_1');
 
     // Confirm audit written once with called tools list

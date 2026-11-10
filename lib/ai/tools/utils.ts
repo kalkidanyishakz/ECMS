@@ -1,5 +1,6 @@
 import { resolveEffectivePermissions, hasAnyPermission } from '@/lib/server/session';
 import { db as defaultDb } from '@/lib/db';
+import type { ToolDb } from './db';
 
 export type ToolPermissionCheckResult =
   | { allowed: true; roles: string[]; permissions: string[] }
@@ -9,7 +10,7 @@ export async function checkToolPermissions(
   projectId: string,
   userId: string,
   requiredDomainPermission: string,
-  dbClient: any = defaultDb
+  dbClient: ToolDb = defaultDb as unknown as ToolDb
 ): Promise<ToolPermissionCheckResult> {
   if (!projectId || !userId) {
     return {

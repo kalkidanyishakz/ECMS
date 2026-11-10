@@ -8,7 +8,7 @@ import { IconClipboardCheck, IconPlus } from '@tabler/icons-react';
 import { db } from '@/lib/db';
 import { requireAppUser, hasPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
-import { dateTime, date } from '@/lib/format';
+import { dateTime } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 

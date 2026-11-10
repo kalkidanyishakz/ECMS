@@ -13,7 +13,7 @@ import { date } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function FieldMeasurementsPage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
   const [measurements, contracts, workPackages, orgs] = await Promise.all([

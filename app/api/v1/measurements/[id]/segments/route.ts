@@ -33,7 +33,6 @@ export const POST = withErrorHandling(async function POST(
   const end_chainage_mm = form.get('end_chainage_mm') as string | null;
   const offset_m = (form.get('offset_m') as string)?.trim() || null;
   const segment_value = (form.get('segment_value') as string)?.trim() || null;
-  const drawing_reference = (form.get('drawing_reference') as string)?.trim() || null;
   const notes = (form.get('notes') as string)?.trim() || null;
 
   if (!measurement_line_id) {

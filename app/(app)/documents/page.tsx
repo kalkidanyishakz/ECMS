@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function DocumentsPage() {
   await requireAppUser();
-  const { tenantId, projectId } = await getProjectContext();
+  const { projectId } = await getProjectContext();
 
   const [register, revisions] = await Promise.all([
     db.$queryRaw<Array<{ document_id: string; document_number: string; title: string; category: string; discipline: string | null; status: string; current_revision_id: string | null; revision_number: string | null; issued_date: Date | null; issue_purpose: string | null; page_count: number | null; ocr_status: string | null }>>`

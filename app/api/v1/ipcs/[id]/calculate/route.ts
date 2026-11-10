@@ -5,7 +5,7 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { withErrorHandling } from '@/lib/api-handler';
-import { calculateIpc, round2 } from '@/lib/calculations/ipc';
+import { calculateIpc } from '@/lib/calculations/ipc';
 import type { IpcContract, IpcRules, PreviousIpc, BoqLineInput, MosLineInput, AdjustmentInput } from '@/lib/calculations/ipc';
 
 export const dynamic = 'force-dynamic';

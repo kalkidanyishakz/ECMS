@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
-import type { contract_status } from '@/lib/generated/prisma/client';
 import { db } from '@/lib/db';
 import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';

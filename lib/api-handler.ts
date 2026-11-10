@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyFunction = (...args: any[]) => Promise<NextResponse>;
+type AnyFunction = (...args: never[]) => Promise<NextResponse>;
 
 export function redirectIfRequested(form: FormData, fallback?: string): void {
   const target = ((form.get('redirect_to') as string | null) ?? '').trim() || fallback;
@@ -10,11 +9,11 @@ export function redirectIfRequested(form: FormData, fallback?: string): void {
 }
 
 export function withErrorHandling<T extends AnyFunction>(handler: T): T {
-  return (async (...args: any[]) => {
+  return (async (...args: never[]) => {
     try {
       return await handler(...args);
     } catch (error) {
-      const req = args[0] as Request;
+      const req = args[0] as Request | undefined;
       if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
         throw error;
       }

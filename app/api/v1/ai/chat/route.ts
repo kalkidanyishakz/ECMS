@@ -6,27 +6,81 @@ import { deepseek, DEEPSEEK_MODEL } from '@/lib/ai/deepseek-client';
 import { buildSystemPrompt } from '@/lib/ai/system-prompt';
 import { tools as registeredTools, TOOL_FRIENDLY_NAMES } from '@/lib/ai/tools';
 import { hasUsableDeepSeekKey, streamDemoChat } from '@/lib/ai/demo-responder';
+import type { ToolDb } from '@/lib/ai/tools/db';
 
 export const dynamic = 'force-dynamic';
+
+export type ChatToolCallDelta = {
+  index: number;
+  id?: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
+};
+
+export type ChatDelta = {
+  content?: string;
+  tool_calls?: ChatToolCallDelta[];
+};
+
+export type ChatStreamChunk = {
+  choices?: Array<{ delta?: ChatDelta; finish_reason?: string | null }>;
+};
+
+export type ChatMessage = {
+  role: string;
+  content?: string | null;
+  tool_calls?: Array<{ id: string; type: string; function: { name: string; arguments: string } }>;
+  tool_call_id?: string;
+};
+
+export type ChatCompletionParams = {
+  model: string;
+  messages: ChatMessage[];
+  tools: unknown;
+  tool_choice: string;
+  stream: boolean;
+};
+
+/**
+ * Minimal structural view of the OpenAI-compatible client used for streaming.
+ * The real `deepseek` instance is adapted once via a cast; tests supply a small
+ * fake with the same shape.
+ */
+export type ChatStreamClient = {
+  chat: {
+    completions: {
+      create: (params: ChatCompletionParams) => Promise<AsyncIterable<ChatStreamChunk>>;
+    };
+  };
+};
+
+type RegisteredChatTool = {
+  run: (
+    projectId: string,
+    userId: string,
+    args: Record<string, unknown>,
+    dbClient: ToolDb
+  ) => Promise<unknown>;
+};
 
 const formattedTools = registeredTools.map((t) => ({
   type: 'function' as const,
   function: t.schema,
 }));
 
-const toolMap = new Map<string, any>();
+const toolMap = new Map<string, RegisteredChatTool>();
 for (const t of registeredTools) {
-  toolMap.set(t.schema.name, t);
+  toolMap.set(t.schema.name, t as unknown as RegisteredChatTool);
 }
 
 export async function processChatRequest(
   projectId: string,
   userId: string,
-  messages: Array<{ role: string; content?: any; tool_calls?: any; tool_call_id?: string }>,
-  clientOverride?: any,
-  dbClient: any = db
+  messages: ChatMessage[],
+  clientOverride?: ChatStreamClient,
+  dbClient: ToolDb = db as unknown as ToolDb
 ) {
-  const client = clientOverride || deepseek;
+  const client = clientOverride ?? (deepseek as unknown as ChatStreamClient);
 
   const project = await dbClient.projects.findUnique({
     where: { id: projectId },
@@ -45,7 +99,7 @@ export async function processChatRequest(
     projectId,
   });
 
-  const conversationHistory: any[] = [
+  const conversationHistory: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
     ...messages,
   ];
@@ -159,7 +213,7 @@ export async function processChatRequest(
                 )
               );
 
-              let parsedArgs: any = {};
+              let parsedArgs: Record<string, unknown> = {};
               try {
                 parsedArgs = JSON.parse(tc.arguments || '{}');
               } catch {
@@ -167,7 +221,7 @@ export async function processChatRequest(
               }
 
               const targetTool = toolMap.get(tc.name);
-              let result: any;
+              let result: unknown;
               if (targetTool) {
                 result = await targetTool.run(projectId, userId, parsedArgs, dbClient);
               } else {
@@ -217,12 +271,13 @@ export async function processChatRequest(
           )
         );
         controller.close();
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Internal Server Error during chat processing';
         controller.enqueue(
           encoder.encode(
             JSON.stringify({
               type: 'error',
-              message: err?.message || 'Internal Server Error during chat processing',
+              message,
             }) + '\n'
           )
         );
@@ -242,7 +297,7 @@ export async function processChatRequest(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as { projectId?: string; messages?: ChatMessage[] };
     const { projectId, messages } = body || {};
 
     if (!projectId || !Array.isArray(messages)) {
@@ -258,10 +313,11 @@ export async function POST(req: NextRequest) {
     }
 
     return await processChatRequest(projectId, auth.appUser.id, messages);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AI Chat Route Error]:', error);
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: message },
       { status: 500 }
     );
   }

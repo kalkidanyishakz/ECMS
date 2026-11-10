@@ -5,6 +5,7 @@ import { requireApiPermission } from '@/lib/server/session';
 import { getProjectContext } from '@/lib/server/context';
 import { writeAudit } from '@/lib/audit';
 import { saveUploadedFile, extractUpload } from '@/lib/storage';
+import { enqueueOutboxEvent, OUTBOX_EVENT_TYPES } from '@/lib/outbox';
 import { withErrorHandling } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,15 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     entityType: 'document_revisions',
     entityId: revision.id,
     after: { document_id: documentId, revision_number, status: 'draft' },
+  });
+
+  await enqueueOutboxEvent({
+    tenantId,
+    projectId,
+    aggregateType: 'document_revision',
+    aggregateId: revision.id,
+    eventType: OUTBOX_EVENT_TYPES.DOCUMENT_OCR_REQUESTED,
+    payload: { revisionId: revision.id },
   });
 
   redirect(`/documents/${documentId}`);

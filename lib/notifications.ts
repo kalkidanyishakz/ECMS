@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { enqueueOutboxEvent, OUTBOX_EVENT_TYPES } from '@/lib/outbox';
 
 type NotificationInput = {
   tenantId: string;
@@ -12,7 +13,7 @@ type NotificationInput = {
 };
 
 export async function createNotification(input: NotificationInput) {
-  return db.notifications.create({
+  const notification = await db.notifications.create({
     data: {
       tenant_id: input.tenantId,
       user_id: input.userId,
@@ -24,6 +25,17 @@ export async function createNotification(input: NotificationInput) {
       target_id: input.targetId ?? null,
     },
   });
+
+  await enqueueOutboxEvent({
+    tenantId: input.tenantId,
+    projectId: input.projectId ?? null,
+    aggregateType: 'notification',
+    aggregateId: notification.id,
+    eventType: OUTBOX_EVENT_TYPES.NOTIFICATION_DISPATCH,
+    payload: { notificationIds: [notification.id] },
+  });
+
+  return notification;
 }
 
 export async function notifyProjectMembers(
@@ -63,6 +75,21 @@ export async function notifyProjectMembers(
     }));
 
   if (notifications.length > 0) {
-    await db.notifications.createMany({ data: notifications });
+    const created = await db.notifications.createManyAndReturn({
+      data: notifications,
+      select: { id: true },
+    });
+    const notificationIds = created.map((notification) => notification.id);
+
+    if (notificationIds.length > 0) {
+      await enqueueOutboxEvent({
+        tenantId,
+        projectId,
+        aggregateType: 'notification',
+        aggregateId: notificationIds[0],
+        eventType: OUTBOX_EVENT_TYPES.NOTIFICATION_DISPATCH,
+        payload: { notificationIds },
+      });
+    }
   }
 }

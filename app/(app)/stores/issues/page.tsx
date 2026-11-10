@@ -12,7 +12,7 @@ import { date, num } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function MaterialIssuesPage() {
-  const ctx = await requireAppUser();
+  await requireAppUser();
   const { tenantId, projectId } = await getProjectContext();
 
   const [issues, warehouses, workPackages] = await Promise.all([

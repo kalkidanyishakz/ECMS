@@ -3,6 +3,8 @@ name: ecms
 services:
   db:
     image: postgres:16
+    mem_limit: 512m
+    memswap_limit: 512m
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -40,6 +42,8 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
     restart: unless-stopped
+    mem_limit: 2048m
+    memswap_limit: 2048m
 
 volumes:
   ecms_pgdata:

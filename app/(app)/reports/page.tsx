@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireAppUser();
-  const { tenantId, projectId } = await getProjectContext();
+  const { projectId } = await getProjectContext();
   const { q: rawQuery } = await searchParams;
   const q = (rawQuery ?? '').trim().toLowerCase();
 

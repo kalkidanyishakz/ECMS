@@ -77,9 +77,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   // If a quote is selected, use its prices; otherwise use requisition estimates
   let subtotal = 0;
   const poLinesData = requisition.purchase_requisition_lines.map((rl, idx) => {
-    let unitPrice = Number(rl.estimated_unit_price ?? 0);
-    let lineAmount = Number(rl.estimated_amount ?? 0);
-    let quantity = Number(rl.requested_quantity);
+    const unitPrice = Number(rl.estimated_unit_price ?? 0);
+    const lineAmount = Number(rl.estimated_amount ?? 0);
+    const quantity = Number(rl.requested_quantity);
 
     // Override with quote prices if available (will be resolved after quote lookup)
     return {

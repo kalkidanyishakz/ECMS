@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { tools, projectSummary, boqStatus, ipcStatus, procurementStatus, workforceStatus, recentActivity } from './index';
+import type { ToolDb } from './db';
 
 function isSuccessResult<T extends object, K extends string>(
   res: T,
@@ -20,7 +21,7 @@ const NON_MEMBER_USER_ID = '33333333-3333-3333-3333-333333333333';
 function createMockDb() {
   return {
     tenant_member_roles: {
-      findMany: async ({ where }: any) => {
+      findMany: async ({ where }: { where: { user_id: string } }) => {
         if (where.user_id === PM_USER_ID) {
           return [{ role_id: 'role-pm', roles: { role_key: 'employer_pm' } }];
         }
@@ -37,7 +38,7 @@ function createMockDb() {
       findMany: async () => [],
     },
     project_members: {
-      findUnique: async ({ where }: any) => {
+      findUnique: async ({ where }: { where: { project_id_user_id: { user_id: string } } }) => {
         const uid = where.project_id_user_id.user_id;
         if (uid === PM_USER_ID) return { id: 'pm-member-id' };
         if (uid === FOREMAN_USER_ID) return { id: 'foreman-member-id' };
@@ -45,7 +46,7 @@ function createMockDb() {
       },
     },
     project_member_roles: {
-      findMany: async ({ where }: any) => {
+      findMany: async ({ where }: { where: { project_member_id: string } }) => {
         if (where.project_member_id === 'pm-member-id') {
           return [
             {
@@ -109,7 +110,7 @@ function createMockDb() {
       }),
     },
     contracts: {
-      findFirst: async ({ where }: any) => {
+      findFirst: async ({ where }: { where?: { project_id?: string } }) => {
         if (where?.project_id === PROJECT_ID) {
           return { id: 'contract-1', project_id: PROJECT_ID };
         }
@@ -117,7 +118,7 @@ function createMockDb() {
       },
     },
     boq_versions: {
-      findFirst: async ({ where }: any) => {
+      findFirst: async ({ where }: { where?: { contract_id?: string; status?: string } }) => {
         if (where?.contract_id === 'contract-1') {
           return { id: 'boq-v1', contract_id: 'contract-1', version_number: 1, status: 'approved' };
         }
@@ -151,7 +152,7 @@ function createMockDb() {
       ],
     },
     ipc_certificates: {
-      findFirst: async ({ where }: any) => {
+      findFirst: async ({ where }: { where: { status: string } }) => {
         if (where.status === 'certified') {
           return {
             id: 'ipc-1',
@@ -294,7 +295,7 @@ describe('AI Data Tools — Schema & Export Registries', () => {
 });
 
 describe('AI Data Tools — Permission Gating & Direct Execution', () => {
-  const mockDb = createMockDb();
+  const mockDb = createMockDb() as unknown as ToolDb;
 
   describe('1. Project Summary Tool', () => {
     it('returns real data for authorized Project Manager', async () => {
@@ -329,12 +330,14 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
       expect(res.over90PercentCount).toBe(2); // item-1 (95%) and item-2 (110%)
       expect(res.overrunCount).toBe(1); // item-2 (110%)
 
-      const item1 = res.items.find((i: any) => i.itemNumber === '1.01');
+      const item1 = res.items.find((i) => i.itemNumber === '1.01');
+      if (!item1) throw new Error('expected BOQ item 1.01');
       expect(item1.percentComplete).toBe(95);
       expect(item1.isOver90Percent).toBe(true);
       expect(item1.isOverrun).toBe(false);
 
-      const item2 = res.items.find((i: any) => i.itemNumber === '1.02');
+      const item2 = res.items.find((i) => i.itemNumber === '1.02');
+      if (!item2) throw new Error('expected BOQ item 1.02');
       expect(item2.percentComplete).toBe(110);
       expect(item2.isOver90Percent).toBe(true);
       expect(item2.isOverrun).toBe(true);
@@ -351,13 +354,13 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
       const customDb = {
         ...mockDb,
         contracts: {
-          findFirst: async ({ where }: any) => {
+          findFirst: async ({ where }: { where: { project_id: string } }) => {
             queriedCalls.push(`contracts.findFirst: ${where.project_id}`);
             return { id: 'contract-custom-123', project_id: where.project_id };
           },
         },
         boq_versions: {
-          findFirst: async ({ where }: any) => {
+          findFirst: async ({ where }: { where: { contract_id: string; status: string } }) => {
             queriedCalls.push(`boq_versions.findFirst: contract_id=${where.contract_id}, status=${where.status}`);
             if (where.contract_id === 'contract-custom-123' && where.status === 'approved') {
               return { id: 'boq-approved-1', contract_id: 'contract-custom-123', version_number: 1, status: 'approved' };
@@ -365,7 +368,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
             return null;
           },
         },
-      };
+      } as unknown as ToolDb;
 
       const res = await boqStatus.run(PROJECT_ID, PM_USER_ID, {}, customDb);
       expect(res).not.toHaveProperty('restricted');
@@ -381,7 +384,7 @@ describe('AI Data Tools — Permission Gating & Direct Execution', () => {
         contracts: {
           findFirst: async () => null,
         },
-      };
+      } as unknown as ToolDb;
 
       const res = await boqStatus.run(PROJECT_ID, PM_USER_ID, {}, customDb);
       expect(res).toEqual({

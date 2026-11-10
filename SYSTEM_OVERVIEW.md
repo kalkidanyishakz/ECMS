@@ -67,17 +67,27 @@ Web / tablet users → Next.js frontend → API (domain modules)
 
 Generated Prisma types are treated as **persistence types**, not the frontend API contract; explicit request/response schemas keep DB changes from leaking into screens.
 
+### Background processing
+
+Work that must not block a request is written to a durable outbox (`lib/outbox.ts`) and dispatched by a worker in `lib/worker/`. The worker claims rows with `FOR UPDATE SKIP LOCKED`, retries with exponential backoff, and dead-letters after repeated failures. Run it continuously with `npm run worker` (poll interval `WORKER_POLL_MS`, `--once` for a single batch) or trigger one batch on demand at `POST /api/v1/worker/tick` under the `audit.read` permission.
+
+Registered handlers:
+
+- `notification.dispatch`: delivers queued notifications to the in-app inbox (there is no email/SMS channel).
+- `document.ocr_requested`: runs `runDocumentOcr` to extract `document_pages`; text/CSV/JSON/YAML/XLSX complete, images and PDFs are truthful `partial`, unsupported types `failed`. Backfill with `npm run ocr:backfill`.
+- `ai.findings_scan_requested`: generates deterministic advisory findings (`model_provider: 'ecms-rules'`) for duplicate supplier payments, BOQ over/approaching overrun, three-way-match breaks, and blocked controls. Trigger from the Control Console, `POST /api/v1/controls/findings/scan` (`?sync=1` inline), or `npm run findings:scan`.
+
 ## Application modules (navigation)
 
 Overview · Cost & BOQ · Field · IPCs · Contract · Documents · Issues · Reports · Setup — plus procurement, stores, workforce, imports, and administration. The API exposes `/api/v1/*` endpoints for projects, contracts, BOQ versions, measurements, IPCs, variations, documents, issues, suppliers, requisitions, purchase orders, goods receipts, supplier invoices, material issues, stock counts, workers, timesheets, payroll, worker payments, imports, and AI.
 
 ## Database
 
-The schema is defined by numbered SQL migrations in `db/migrations/` (the **single source of truth**, ~100+ tables) and mirrored manually in `prisma/schema.prisma`. Migrations cover the core MVP schema, Better Auth tables, IPC `paid_by`, triggers/RLS/seeds, and AI chat permissions.
+The schema is defined by numbered SQL migrations in `db/migrations/` (the **single source of truth**, ~100+ tables) and mirrored manually in `prisma/schema.prisma`. Migrations `0001` through `0006` cover the core MVP schema, Better Auth tables, IPC `paid_by`, triggers/RLS/seeds, the `ai_chat.use` permission, and idempotency keys for the outbox/worker foundation.
 
 ## Demo data
 
-The primary demo dataset is the **Jigjiga Bypass Road** — a 6.93 km FIDIC unit-price road contract (ERA employer, Yirgalem Construction contractor, ELDA/DAMRA engineer). Seeding creates a tenant, project, organizations, contract parties, an approved BOQ, contract rules for advance recovery and VAT withholding, and a stub IPC #1 draft. Demo accounts (PM, site supervisor, storekeeper) log in against `lib/data.ts` without a database.
+The primary demo dataset is the **Jigjiga Bypass Road** — a 6.93 km FIDIC unit-price road contract (ERA employer, Yirgalem Construction contractor, ELDA/DAMRA engineer). Seeding creates a tenant, project, organizations, contract parties, an approved BOQ, contract rules for advance recovery and VAT withholding, and a stub IPC #1 draft. Demo accounts (PM, site supervisor, storekeeper, finance officer) are seeded into PostgreSQL by `db/seed-demo-users.ts`, which creates Better Auth credentials and links them to `app_users`, memberships, and roles; a database is required to log in.
 
 ## Explicitly out of scope (Phase 2)
 

@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { TOOL_FRIENDLY_NAMES } from '@/lib/ai/tools';
 
-function parseNDJSONStream(chunks: string[], onEvent: (event: any) => void) {
+type StreamEvent =
+  | { type: 'content'; delta: string }
+  | { type: 'tool_call'; name: string; label: string }
+  | { type: 'done' };
+
+function parseNDJSONStream(chunks: string[], onEvent: (event: StreamEvent) => void) {
   let buffer = '';
   for (const chunk of chunks) {
     buffer += chunk;
@@ -17,7 +22,7 @@ function parseNDJSONStream(chunks: string[], onEvent: (event: any) => void) {
 
 describe('ChatWidget Stream Parser & Tool Label Mapping', () => {
   it('1. Parses split NDJSON chunk fragments into discrete tool_call, content, and done events', () => {
-    const events: any[] = [];
+    const events: StreamEvent[] = [];
     const streamChunks = [
       '{"type":"tool_call","name":"get_boq_status","label":"BOQ status"}\n{"type":"content",',
       '"delta":"Here is "} \n{"type":"content","delta":"the BOQ '  ,

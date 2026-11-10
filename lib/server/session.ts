@@ -24,7 +24,7 @@ const SUPER_ROLE_KEYS = ['admin', 'tenant_admin'];
  * structural type so the resolution logic can be unit-tested without a live
  * database.
  */
-type PermissionDb = {
+export type PermissionDb = {
   tenant_member_roles: {
     findMany: (args: {
       where: { user_id: string };

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { StatusPill } from '@/components/ui/StatusPill';
@@ -54,12 +53,13 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
               {contracts.map((c) => {
                 const variations = c.variations.reduce((s, v) => s + Number(v.approved_value), 0);
                 const certified = c.ipc_certificates.reduce((s, i) => s + Number(i.net_current_amount), 0);
-                const approvedBoq = c.boq_versions?.status === 'approved' ? c.boq_versions : null;
                 return (
                   <TR key={c.id} className="hover:bg-ecms-elevated/40">
                     <TD className="font-medium">{c.contract_number}</TD>
                     <TD>{c.projects.project_code}</TD>
-                    <TD className="max-w-[260px] truncate text-ecms-muted">{c.title}</TD>
+                    <TD className="w-[220px] max-w-[220px] text-ecms-muted">
+                      <span className="block truncate" title={c.title}>{c.title}</span>
+                    </TD>
                     <TD className="text-ecms-muted">{c.contract_type ?? '—'}</TD>
                     <TD><StatusPill status={c.status} /></TD>
                     <TD>{date(c.signed_date)}</TD>

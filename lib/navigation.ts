@@ -11,7 +11,6 @@ export const navigationModules: NavigationModule[] = [
     label: 'Dashboard', href: '/dashboard', sections: [
       { label: 'Overview', items: [
         { label: 'Executive Summary', href: '/dashboard' },
-        { label: 'S-Curve & Progress', href: '/dashboard?tab=curve' },
       ] },
     ],
   },
@@ -128,10 +127,10 @@ export const navigationModules: NavigationModule[] = [
 ];
 
 export function getNavigationTrail(pathname: string) {
-  for (const module of navigationModules) {
-    for (const section of module.sections) {
+  for (const navModule of navigationModules) {
+    for (const section of navModule.sections) {
       const item = section.items.find((entry) => entry.href === pathname);
-      if (item) return { module, section, item };
+      if (item) return { module: navModule, section, item };
     }
   }
   return undefined;
